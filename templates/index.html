@@ -3,82 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Content Transcriber</title>
+    <title>AI Transcriber Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body class="bg-slate-50 min-h-screen flex flex-col items-center justify-center p-4">
+<body class="bg-gray-900 text-gray-100 min-h-screen font-sans">
 
-    <div class="max-w-2xl w-full bg-white rounded-2xl shadow-xl p-8">
-        <h1 class="text-3xl font-bold text-slate-800 mb-2 text-center">Video AI Transcriber</h1>
-        <p class="text-slate-500 text-center mb-8">Convierte cualquier video de YouTube en texto profesional para tus redes sociales.</p>
-
-        <div class="space-y-4">
-            <input type="text" id="videoUrl" placeholder="Pega el link de YouTube aquí..." 
-                   class="w-full px-4 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none transition">
-            
-            <button onclick="procesarVideo()" id="btnAction"
-                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition transform active:scale-95">
-                Generar Transcripción
-            </button>
+    <div class="container mx-auto max-w-4xl px-4 py-12">
+        <div class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-white mb-4">
+                <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">
+                    AI Content Transcriber
+                </span>
+            </h1>
+            <p class="text-gray-400 text-lg">Convierte videos o audios en texto profesional en segundos.</p>
         </div>
 
-        <div id="loader" class="hidden mt-8 text-center">
-            <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div>
-            <p class="mt-2 text-slate-600 italic">La IA está escuchando y procesando el audio... esto puede tardar un minuto.</p>
-        </div>
-
-        <div id="resultContainer" class="hidden mt-8">
-            <h3 class="text-lg font-semibold text-slate-700 mb-2">Resultado:</h3>
-            <div id="transcripcion" class="bg-slate-100 p-4 rounded-lg text-slate-800 text-sm max-h-60 overflow-y-auto whitespace-pre-wrap border border-slate-200">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg">
+                <div class="flex items-center mb-4">
+                    <i class="fab fa-youtube text-red-500 text-2xl mr-3"></i>
+                    <h2 class="text-xl font-semibold">Desde YouTube</h2>
+                </div>
+                <input type="text" id="videoUrl" placeholder="Pega el enlace aquí..." 
+                       class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none mb-4">
+                <button onclick="procesarYoutube()" id="btnYoutube"
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold transition duration-200">
+                    Procesar Enlace
+                </button>
             </div>
-            <button onclick="copyToClipboard()" class="mt-4 text-indigo-600 text-sm font-medium hover:underline">
-                Copiar al portapapeles
-            </button>
+
+            <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg">
+                <div class="flex items-center mb-4">
+                    <i class="fas fa-file-audio text-blue-400 text-2xl mr-3"></i>
+                    <h2 class="text-xl font-semibold">Subir Archivo</h2>
+                </div>
+                <div id="dropZone" class="border-2 border-dashed border-gray-600 rounded-lg p-4 text-center hover:border-indigo-500 transition cursor-pointer mb-4">
+                    <input type="file" id="fileInput" class="hidden" accept="audio/*,video/*">
+                    <p id="fileName" class="text-gray-400 text-sm italic">Haz clic o arrastra un audio (.mp3, .m4a)</p>
+                </div>
+                <button onclick="procesarArchivo()" id="btnFile"
+                        class="w-full bg-purple-600 hover:bg-purple-700 py-3 rounded-lg font-bold transition duration-200">
+                    Subir y Transcribir
+                </button>
+            </div>
+        </div>
+
+        <div id="loader" class="hidden mt-12 text-center">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-indigo-500"></div>
+            <p class="mt-4 text-indigo-400 animate-pulse font-medium">La IA de Groq está trabajando... No cierres esta pestaña.</p>
+        </div>
+
+        <div id="resultArea" class="hidden mt-12 bg-gray-800 rounded-2xl border border-gray-700 p-8 shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold">Transcripción</h3>
+                <button onclick="copyText()" class="text-indigo-400 hover:text-indigo-300 flex items-center">
+                    <i class="far fa-copy mr-2"></i> Copiar
+                </button>
+            </div>
+            <div id="transcripcion" class="bg-gray-900 p-6 rounded-xl border border-gray-700 text-gray-300 text-sm leading-relaxed max-h-96 overflow-y-auto whitespace-pre-wrap">
+            </div>
         </div>
     </div>
 
     <script>
-        async function procesarVideo() {
-            const url = document.getElementById('videoUrl').value;
-            const btn = document.getElementById('btnAction');
-            const loader = document.getElementById('loader');
-            const result = document.getElementById('resultContainer');
+        // Manejo de la Zona de Arrastre
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileNameDisp = document.getElementById('fileName');
 
-            if(!url) return alert("Por favor, pega una URL");
+        dropZone.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => {
+            if(e.target.files.length > 0) fileNameDisp.innerText = e.target.files[0].name;
+        };
 
-            // UI State
-            btn.disabled = true;
-            btn.classList.add('opacity-50');
-            loader.classList.remove('hidden');
-            result.classList.add('hidden');
-
-           
+        async function apiCall(endpoint, body) {
+            showUI(true);
             try {
-                const response = await fetch('/transformar', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body: `url=${encodeURIComponent(url)}`
-                });
-            
+                const response = await fetch(endpoint, { method: 'POST', body: body });
                 const data = await response.json();
-                
-                if (data.error) {
-                    // Si el servidor devuelve un error, lo mostramos
-                    alert("Error del servidor: " + data.error);
-                } else {
-                    document.getElementById('transcripcion').innerText = data.transcripcion;
-                    result.classList.remove('hidden');
-                }
-            } catch (error) {
-                alert("Hubo un fallo de conexión con el servidor.");
-            }finally {
-                btn.disabled = false;
-                btn.classList.remove('opacity-50');
-                loader.classList.add('hidden');
+                if (data.error) throw new Error(data.error);
+                document.getElementById('transcripcion').innerText = data.transcripcion;
+                document.getElementById('resultArea').classList.remove('hidden');
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            } catch (e) {
+                alert("Error: " + e.message);
+            } finally {
+                showUI(false);
             }
         }
 
-        function copyToClipboard() {
+        function procesarYoutube() {
+            const url = document.getElementById('videoUrl').value;
+            if(!url) return alert("Pega un enlace de YouTube.");
+            const body = new URLSearchParams();
+            body.append('url', url);
+            apiCall('/transformar', body);
+        }
+
+        function procesarArchivo() {
+            const file = fileInput.files[0];
+            if(!file) return alert("Selecciona un archivo primero.");
+            const formData = new FormData();
+            formData.append('file', file);
+            apiCall('/subir', formData);
+        }
+
+        function showUI(loading) {
+            document.getElementById('loader').classList.toggle('hidden', !loading);
+            document.getElementById('btnYoutube').disabled = loading;
+            document.getElementById('btnFile').disabled = loading;
+        }
+
+        function copyText() {
             const text = document.getElementById('transcripcion').innerText;
             navigator.clipboard.writeText(text);
             alert("¡Copiado!");
