@@ -93,11 +93,13 @@ def transformar():
     url = request.form.get('url')
     if not url:
         return jsonify({"error": "URL no proporcionada"}), 400
-    path_js = '/app/bgutil-engine/server/build/generate_once.js'
-    # DIAGNÓSTICO MEJORADO
-    print(f"--- DIAGNÓSTICO ---")
-    print(f"¿Node en PATH?: {shutil.which('node')}")
-    print(f"¿Archivo JS existe?: {os.path.exists(path_js)}")
+    # RUTA FIJA establecida en el Dockerfile
+    path_js = '/app/motor.js'
+    
+    # DIAGNÓSTICO (Para confirmar en logs)
+    print(f"--- DIAGNÓSTICO FINAL ---")
+    print(f"¿Node.js listo?: {shutil.which('node')}")
+    print(f"¿Motor de tokens listo?: {os.path.exists(path_js)}")
 
     # 2. COOKIES (Mantenlas, pero asegúrate de que sean frescas)
     # Si YouTube te sigue pidiendo "Sign in", es que estas cookies han muerto.
@@ -119,13 +121,12 @@ def transformar():
             'youtube': {
                 'player_client': ['web', 'tv'],
             },
-            # Le damos la ruta mascada al plugin
             'youtubepot-bgutilscript': {
                 'script_path': path_js
             }
         },
-        # Forzamos a yt-dlp a usar el ejecutable de node
-        'js_runtimes': ['node'] 
+        # Forzamos a yt-dlp a usar node para resolver el "n challenge"
+        'js_runtimes': ['node']
     }
 
     try:
