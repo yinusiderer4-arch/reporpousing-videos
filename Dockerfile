@@ -1,22 +1,19 @@
 FROM python:3.10-slim
 
-# Instala ffmpeg (vital para yt-dlp) y dependencias
+# Instalamos ffmpeg Y nodejs (el motor para resolver el reto de YouTube)
 RUN apt-get update && apt-get install -y \
     ffmpeg \
+    curl \
+    && curl -sL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# directorio de trabajo
 WORKDIR /app
-
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-
 COPY . .
 
-
-EXPOSE 7860
-
-# Ejecuta la app
+# Render usa el puerto dinámico, Flask lo gestionará
 CMD ["python", "app.py"]
