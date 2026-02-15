@@ -92,7 +92,7 @@ def subir_archivo():
 def transformar():
     url = request.form.get('url')
     
-    # GESTIÓN DE COOKIES (El pase VIP)
+    # GESTIÓN DE COOKIES (Vital para Android y TV)
     cookies_content = os.getenv("YT_COOKIES")
     cookie_path = "/tmp/cookies.txt"
     if cookies_content:
@@ -107,12 +107,12 @@ def transformar():
         'cookiefile': cookie_path if cookies_content else None,
         'extractor_args': {
             'youtube': {
-                # iOS + Cookies suele ser la combinación ganadora en Datacenters
-                'player_client': ['ios', 'tv'],
-                'player_skip': ['web', 'web_music', 'android']
+                # Android usa Cookies + PO Token (Máxima seguridad)
+                # TV usa Cookies + PO Token
+                # iOS usa solo PO Token (Backup)
+                'player_client': ['android', 'tv', 'ios'],
+                'player_skip': ['web', 'web_music']
             }
-            # NOTA: Ya no pasamos 'youtubepot-bgutilscript' porque 
-            # lo hemos hardcodeado en el propio archivo python.
         },
         'js_runtimes': {'node': {}}
     }
