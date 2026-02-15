@@ -125,7 +125,7 @@ def transformar():
             }
         },
         # Forzamos a yt-dlp a usar node para resolver el "n challenge"
-        'js_runtimes': ['node']
+        'js_runtimes': {'node': {}}
     }
 
     try:
