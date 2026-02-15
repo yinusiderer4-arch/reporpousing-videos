@@ -35,20 +35,24 @@ def transformar():
         with open(cookie_path, "w") as f: f.write(cookies_content)
 
     ydl_opts = {
-        'format': 'bestaudio/best',
+        # Cambiamos la prioridad: si no hay m4a, que busque cualquier cosa que suene
+        'format': 'bestaudio/best', 
         'outtmpl': nombre_archivo,
         'cookiefile': cookie_path if cookies_content else None,
-        'quiet': False,
+        'quiet': False, 
         'no_warnings': False,
         'nocheckcertificate': True,
-        # FORZAMOS SOLO CLIENTE IOS (Es el que menos falla hoy)
+        
+        # ESTRATEGIA DE CLIENTE: La TV es la clave cuando falla el móvil
         'extractor_args': {
             'youtube': {
-                'player_client': ['ios'],
+                'player_client': ['tv', 'ios', 'mweb'],
+                'player_skip': ['webpage', 'configs'], # Saltamos la parte web que da errores
             }
         },
-        # User agent de un iPhone moderno
-        'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+        
+        # Forzamos cabeceras que coincidan con una TV/Móvil
+        'user_agent': 'Mozilla/5.0 (Chromecast; Google TV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
     }
 
     try:
