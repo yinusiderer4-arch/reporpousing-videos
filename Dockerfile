@@ -1,32 +1,33 @@
 FROM python:3.10-slim
 
-# 1. Instalamos herramientas del sistema
+# Instalación limpia de dependencias
 RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    curl \
-    git \
+    ffmpeg curl git \
     && curl -sL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Preparamos el generador de PO Tokens
+# Verificar que node funciona y está en /usr/bin/node
+RUN node -v 
+
+# Preparar motor de tokens
 WORKDIR /app
 RUN git clone https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /app/bgutil-engine
-
-# Entramos en la carpeta del servidor e instalamos solo las dependencias
 WORKDIR /app/bgutil-engine/server
 RUN npm install
 
-# 3. Configuramos la aplicación de Python
+# Configurar App
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Copiamos el resto de tu código (incluyendo la carpeta yt_dlp_plugins)
 COPY . .
 
-# Configuración de puerto para Render
+# Aseguramos que el plugin esté en su sitio
+RUN ls -R yt_dlp_plugins/
+
 ENV PORT=7860
-EXPOSE 7860
+# Forzamos a Node al PATH por si acaso
+ENV PATH="/usr/bin:/usr/local/bin:${PATH}"
 
 CMD ["python", "app.py"]
+
