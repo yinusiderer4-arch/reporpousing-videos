@@ -35,13 +35,16 @@ def transformar():
         with open(cookie_path, "w") as f: f.write(cookies_content)
 
     ydl_opts = {
-        'format': '140',
+        'format': 'bestaudio/best',
         'outtmpl': nombre_archivo,
         'cookiefile': cookie_path if cookies_content else None,
         'quiet': True,
-        # Este parámetro ayuda a saltar bloqueos en servidores
+        #saltar bloqueos en servidores
         'nocheckcertificate': True,
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        # yt-dlp más robusto
+        'noplaylist': True,
+        'extract_flat': False,
     }
 
     try:
