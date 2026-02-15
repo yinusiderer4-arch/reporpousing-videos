@@ -92,22 +92,31 @@ def subir_archivo():
 def transformar():
     url = request.form.get('url')
     
-    # IMPORTANTE: Hemos quitado las cookies.
-    # Ahora que el motor de tokens (script) funciona (ya no sale 'unavailable'),
-    # el cliente Android podrá entrar sin necesidad de cookies.
-    # Si las dejamos, yt-dlp bloquea Android y nos obliga a usar TV, que falla.
-    
+    # COOKIES NECESARIAS (IP Datacenter)
+    cookies_content = os.getenv("YT_COOKIES")
+    cookie_path = "/tmp/cookies.txt"
+    if cookies_content:
+        with open(cookie_path, "w") as f:
+            f.write(cookies_content)
+            
     ydl_opts = {
         'verbose': True,
         'format': 'bestaudio/best',
         'outtmpl': f'/tmp/audio_{hash(url)}.m4a',
         'nocheckcertificate': True,
-        # 'cookiefile': ... -> ELIMINADO
+        'cookiefile': cookie_path if cookies_content else None,
+        
+        # --- LA SOLUCIÓN TÉCNICA ---
+        # 1. Permitimos que yt-dlp descargue el "solver" para el reto de TV
+        # Esto elimina el error "n challenge solving failed"
+        'allow_remote_components': True, # Permitir componentes externos
+        # Ojo: En algunas versiones se pasa así, pero aseguramos con extractor_args abajo también si hace falta
+        
         'extractor_args': {
             'youtube': {
-                # Android + PO Token es la combinación que usan los servidores hoy en día
-                'player_client': ['android', 'ios'],
-                'player_skip': ['web', 'web_music', 'tv'] # Saltamos TV para evitar el error de 'n challenge'
+                # 2. Forzamos SOLO TV (el único que acepta cookies + token sin quejarse)
+                'player_client': ['tv'],
+                'player_skip': ['web', 'web_music', 'android', 'ios']
             }
         },
         'js_runtimes': {'node': {}}
