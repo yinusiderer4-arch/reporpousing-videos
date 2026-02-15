@@ -93,13 +93,12 @@ def transformar():
     url = request.form.get('url')
     if not url:
         return jsonify({"error": "URL no proporcionada"}), 400
-    # RUTA FIJA establecida en el Dockerfile
-    path_js = '/app/motor.js'
+        
+    # NUEVA RUTA: Ahora dentro de la carpeta server y con extensión .mjs
+    path_js = '/app/bgutil-engine/server/generate_once.mjs'
     
-    # DIAGNÓSTICO (Para confirmar en logs)
-    print(f"--- DIAGNÓSTICO FINAL ---")
-    print(f"¿Node.js listo?: {shutil.which('node')}")
-    print(f"¿Motor de tokens listo?: {os.path.exists(path_js)}")
+    print(f"--- DIAGNÓSTICO ---")
+    print(f"¿Archivo .mjs existe?: {os.path.exists(path_js)}")
 
     # 2. COOKIES (Mantenlas, pero asegúrate de que sean frescas)
     # Si YouTube te sigue pidiendo "Sign in", es que estas cookies han muerto.
