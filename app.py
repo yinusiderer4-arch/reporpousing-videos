@@ -4,6 +4,7 @@ import subprocess
 from flask import Flask, render_template, request, jsonify
 from groq import Groq
 import logging
+import shutil
 
 app = Flask(__name__)
 
@@ -93,74 +94,56 @@ def transformar():
     if not url:
         return jsonify({"error": "URL no proporcionada"}), 400
 
-    nombre_base = f"/tmp/audio_{hash(url)}"
-    nombre_original = f"{nombre_base}.m4a"
-    
-    # Manejo de Cookies y Tokens de entorno
+    # 1. DIAGNÓSTICO (Para ver en los logs de Render)
+    print(f"--- DIAGNÓSTICO ---")
+    print(f"¿Node instalado?: {shutil.which('node')}")
+    # Esta ruta es la que configuramos en el nuevo Dockerfile
+    print(f"¿Motor de tokens?: {os.path.exists('/root/bgutil-ytdlp-pot-provider/server/generate_once.js')}")
+
+    # 2. COOKIES (Mantenlas, pero asegúrate de que sean frescas)
+    # Si YouTube te sigue pidiendo "Sign in", es que estas cookies han muerto.
     cookies_content = os.getenv("YT_COOKIES")
-    po_token = os.getenv("YT_PO_TOKEN")
-    visitor_data = os.getenv("YT_VISITOR_DATA")
-    
     cookie_path = "/tmp/cookies.txt"
     if cookies_content:
-        with open(cookie_path, "w") as f: f.write(cookies_content)
+        with open(cookie_path, "w") as f:
+            f.write(cookies_content)
 
-    # Asegúrate de que esta ruta sea exacta
-    path_js = '/app/bgutil-engine/server/generate_once.js'
+    # 3. OPCIONES DE DESCARGA (Limpias)
+    nombre_original = f"/tmp/audio_{hash(url)}.m4a"
     
     ydl_opts = {
-        'verbose': True, # Mantenlo para ver si el mensaje cambia a "Generating POT..."
+        'verbose': True, # Vital para ver si Node y el Script se activan
         'format': 'bestaudio/best',
-        'outtmpl': f'/tmp/%(id)s.%(ext)s',
+        'outtmpl': nombre_original,
         'cookiefile': cookie_path if cookies_content else None,
         'nocheckcertificate': True,
         'extractor_args': {
             'youtube': {
                 'player_client': ['web', 'tv'],
-            },
-            # EL NOMBRE DEBE SER EXACTO: youtubepot-bgutilscript
-            'youtubepot-bgutilscript': {
-                'script_path': path_js
             }
-        },
-        # Añadimos esto para ayudar a encontrar Node
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+            # NO ponemos el path aquí, el plugin lo buscará solo en /root/
+        }
     }
 
     try:
+        # 4. DESCARGA
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # 1. Extraemos info para validar que el video es accesible
-            info = ydl.extract_info(url, download=True)
-            print(f"Descarga completada: {info.get('title')}")
-
-        # 2. Localizar archivo real (yt-dlp puede cambiar la extensión)
-        archivo_descargado = None
-        for f in os.listdir("/tmp"):
-            if f.startswith(f"audio_{hash(url)}"):
-                archivo_descargado = os.path.join("/tmp", f)
-                break
+            ydl.download([url])
         
-        if not archivo_descargado:
-            return jsonify({"error": "YouTube no entregó el archivo de audio."}), 500
-
-        # 3. Comprimir para Groq
-        ruta_para_groq = comprimir_audio(archivo_descargado)
-
-        # 4. Transcribir y Formatear
+        # 5. PROCESAMIENTO (¡Esto no lo toques!)
+        # Comprimir -> Transcribir -> Formatear
+        ruta_para_groq = comprimir_audio(nombre_original)
         texto_bruto = procesar_con_groq(ruta_para_groq)
         texto_final = formatear_transcripcion(texto_bruto)
 
-        # 5. Limpieza
-        if os.path.exists(archivo_descargado): os.remove(archivo_descargado)
-        if os.path.exists(ruta_para_groq) and ruta_para_groq != archivo_descargado:
-            os.remove(ruta_para_groq)
+        # 6. LIMPIEZA
+        if os.path.exists(nombre_original): os.remove(nombre_original)
+        if os.path.exists(ruta_para_groq): os.remove(ruta_para_groq)
             
         return jsonify({"transcripcion": texto_final})
 
     except Exception as e:
-        error_msg = str(e)
-        print(f"ERROR YOUTUBE: {error_msg}")
-        return jsonify({"error": f"YouTube bloqueó la petición. Intenta subiendo el archivo directamente. Detalle: {error_msg}"}), 500
+        return jsonify({"error": f"Error técnico: {str(e)}"}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 7860))
