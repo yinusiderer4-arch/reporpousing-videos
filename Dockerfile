@@ -28,5 +28,5 @@ ENV PORT=7860
 ENV PATH="/usr/bin:/usr/local/bin:${PATH}"
 EXPOSE 7860
 
-CMD ["python", "app.py"]]
+CMD ["python", "app.py"]
 
