@@ -92,26 +92,22 @@ def subir_archivo():
 def transformar():
     url = request.form.get('url')
     
-    # GESTIÓN DE COOKIES (Vital para Android y TV)
-    cookies_content = os.getenv("YT_COOKIES")
-    cookie_path = "/tmp/cookies.txt"
-    if cookies_content:
-        with open(cookie_path, "w") as f:
-            f.write(cookies_content)
+    # IMPORTANTE: Hemos quitado las cookies.
+    # Ahora que el motor de tokens (script) funciona (ya no sale 'unavailable'),
+    # el cliente Android podrá entrar sin necesidad de cookies.
+    # Si las dejamos, yt-dlp bloquea Android y nos obliga a usar TV, que falla.
     
     ydl_opts = {
         'verbose': True,
-        'format': 'm4a',
+        'format': 'bestaudio/best',
         'outtmpl': f'/tmp/audio_{hash(url)}.m4a',
         'nocheckcertificate': True,
-        'cookiefile': cookie_path if cookies_content else None,
+        # 'cookiefile': ... -> ELIMINADO
         'extractor_args': {
             'youtube': {
-                # Android usa Cookies + PO Token (Máxima seguridad)
-                # TV usa Cookies + PO Token
-                # iOS usa solo PO Token (Backup)
-                'player_client': ['android', 'tv', 'ios'],
-                'player_skip': ['web', 'web_music']
+                # Android + PO Token es la combinación que usan los servidores hoy en día
+                'player_client': ['android', 'ios'],
+                'player_skip': ['web', 'web_music', 'tv'] # Saltamos TV para evitar el error de 'n challenge'
             }
         },
         'js_runtimes': {'node': {}}
