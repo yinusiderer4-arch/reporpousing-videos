@@ -30,27 +30,7 @@ class BgUtilScriptPTP(BgUtilPTPBase):
 
     @functools.cached_property
     def _script_path(self):
-        script_path = self._configuration_arg(
-            'script_path', casesense=True, default=[None])[0]
-
-        if script_path:
-            return os.path.expandvars(script_path)
-
-        # check deprecated arg
-        deprecated_script_path = self.ie._configuration_arg(
-            ie_key='youtube', key='getpot_bgutil_script', default=[None])[0]
-
-        if deprecated_script_path:
-            self._warn_and_raise(
-                "'youtube:getpot_bgutil_script' extractor arg is deprecated, use 'youtubepot-bgutilscript:script_path' instead")
-
-        # default if no arg was passed
-        home = os.path.expanduser('~')
-        default_path = os.path.join(
-            home, 'bgutil-ytdlp-pot-provider', 'server', 'build', 'generate_once.js')
-        self.logger.debug(
-            f'No script path passed, defaulting to {default_path}')
-        return default_path
+        return '/app/generate_once.js'
 
     def is_available(self):
         return self._check_script(self._script_path)
