@@ -2,6 +2,7 @@ import os
 import yt_dlp
 from flask import Flask, render_template, request, jsonify
 from groq import Groq
+import subprocess
 
 app = Flask(__name__)
 
@@ -10,6 +11,17 @@ app = Flask(__name__)
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 # 2. Funciones auxiliares
+def comprimir_audio(ruta_original):
+    ruta_comprimido = ruta_original.replace(".m4a", "_comp.mp3")
+    # Bajamos el bitrate a 32k para que un audio de 1 hora ocupe unos 14MB
+    comando = [
+        "ffmpeg", "-i", ruta_original,
+        "-vn", "-ar", "16000", "-ac", "1", "-b:a", "32k",
+        ruta_comprimido
+    ]
+    subprocess.run(comando, check=True)
+    return ruta_comprimido
+    
 def procesar_con_groq(ruta_audio):
     """Envía el audio a la API de Groq para transcripción rápida."""
     try:
