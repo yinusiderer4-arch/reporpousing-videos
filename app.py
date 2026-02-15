@@ -41,13 +41,14 @@ def transformar():
         'quiet': False,
         'no_warnings': False,
         'nocheckcertificate': True,
-        # Eliminamos 'android' para que no choque con las cookies
+        # FORZAMOS SOLO CLIENTE IOS (Es el que menos falla hoy)
         'extractor_args': {
             'youtube': {
-                'player_client': ['web', 'ios'], 
+                'player_client': ['ios'],
             }
         },
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        # User agent de un iPhone moderno
+        'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
     }
 
     try:
