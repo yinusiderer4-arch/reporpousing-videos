@@ -1,41 +1,23 @@
 import os
-import whisper
 import yt_dlp
 from flask import Flask, render_template, request, jsonify
+from groq import Groq
 
 app = Flask(__name__)
 
-# Cargamos el modelo Whisper (IA de transcripción)
-# Usamos 'tiny' para que sea instantáneo o 'base' para más precisión
-model = whisper.load_model("tiny")
+# Configuración de Groq
+# Recuerda añadir GROQ_API_KEY en las variables de entorno de Render
+client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-def descargar_audio(url):
-    # Recuperamos las cookies desde los secretos de Hugging Face
-    cookies_content = os.getenv("YT_COOKIES")
-    cookie_path = "/tmp/cookies.txt"
-    
-    if cookies_content:
-        with open(cookie_path, "w") as f:
-            f.write(cookies_content)
-
-    nombre_archivo = f"/tmp/audio_{hash(url)}"
-    
-    ydl_opts = {
-        'format': '140', # Solo audio m4a (el más ligero)
-        'outtmpl': nombre_archivo,
-        'cookiefile': cookie_path if cookies_content else None,
-        'quiet': True,
-        'no_warnings': True,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            ydl.download([url])
-            return f"{nombre_archivo}.m4a"
-        except Exception as e:
-            print(f"Error de yt-dlp: {e}")
-            return None
+def procesar_con_groq(ruta_audio):
+    with open(ruta_audio, "rb") as file:
+        # Usamos el modelo whisper-large-v3 de Groq (gratuito y ultra rápido)
+        transcription = client.audio.transcriptions.create(
+            file=(ruta_audio, file.read()),
+            model="whisper-large-v3",
+            response_format="text",
+        )
+    return transcription
 
 @app.route('/')
 def index():
@@ -45,27 +27,34 @@ def index():
 def transformar():
     url = request.form.get('url')
     if not url:
-        return jsonify({"error": "Falta la URL"}), 400
+        return jsonify({"error": "URL no válida"}), 400
 
-    ruta_audio = descargar_audio(url)
+    nombre_archivo = f"/tmp/audio_{hash(url)}.m4a"
     
-    if not ruta_audio or not os.path.exists(ruta_audio):
-        return jsonify({"error": "YouTube bloqueó la conexión. Verifica las Cookies."}), 500
+    # Descarga ligera (solo audio)
+    ydl_opts = {
+        'format': '140',
+        'outtmpl': nombre_archivo,
+        'quiet': True,
+        'no_warnings': True,
+    }
 
     try:
-        # Transcripción con IA
-        result = model.transcribe(ruta_audio)
-        texto = result['text']
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
         
-        # Limpieza
-        os.remove(ruta_audio)
+        # Mandar a Groq
+        texto = procesar_con_groq(nombre_archivo)
         
+        # Limpiar
+        if os.path.exists(nombre_archivo):
+            os.remove(nombre_archivo)
+            
         return jsonify({"transcripcion": texto})
     except Exception as e:
-        return jsonify({"error": f"Fallo en la IA: {str(e)}"}), 500
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    # Render usa la variable de entorno PORT
+    # SOLUCIÓN AL ERROR DE PUERTOS: Render inyecta el puerto en esta variable
     port = int(os.environ.get("PORT", 7860))
     app.run(host='0.0.0.0', port=port)
- 
