@@ -91,18 +91,9 @@ def subir_archivo():
 @app.route('/transformar', methods=['POST'])
 def transformar():
     url = request.form.get('url')
-    if not url:
-        return jsonify({"error": "URL no proporcionada"}), 400
-        
-    # NUEVA RUTA: Ahora dentro de la carpeta server y con extensión .js
-    path_js = '/app/bgutil-engine/server/generate_once.js'
     
-    print(f"--- DIAGNÓSTICO ---")
-    print(f"¿Archivo .mjs existe?: {os.path.exists(path_js)}")
-
-   
-    # 3. OPCIONES DE DESCARGA (Limpias)
-    nombre_original = f"/tmp/audio_{hash(url)}.m4a"
+    # NO pasamos script_path. El plugin lo detectará solo en /root/ gracias al Dockerfile.
+    # NO usamos cookies (protocolo de eliminación confirmado).
     
     ydl_opts = {
         'verbose': True,
@@ -111,13 +102,13 @@ def transformar():
         'nocheckcertificate': True,
         'extractor_args': {
             'youtube': {
-                'player_client': ['web', 'tv'],
-            },
-            'youtubepot-bgutilscript': {
-                'script_path': path_js
+                # 'android' es el cliente más resistente a bloqueos en 2026
+                'player_client': ['android', 'tv'],
+                # Saltamos el cliente web que es el que da problemas de "Sign in"
+                'player_skip': ['web', 'web_music', 'ios'],
             }
         },
-        # Forzamos a yt-dlp a usar node para resolver el "n challenge"
+        # Forzamos a que yt-dlp use el motor Node que instalamos
         'js_runtimes': {'node': {}}
     }
 
