@@ -1,6 +1,6 @@
 FROM python:3.10-slim
 
-# 1. Instalamos dependencias del sistema (todo en un solo paso para ahorrar espacio)
+# 1. Instalamos herramientas del sistema
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     curl \
@@ -9,29 +9,24 @@ RUN apt-get update && apt-get install -y \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Preparamos el motor de PO Tokens (La "Magia Negra")
-# Clonamos el repositorio
+# 2. Preparamos el generador de PO Tokens
+WORKDIR /app
 RUN git clone https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /app/bgutil-engine
 
-# ¡AQUÍ ESTABA EL ERROR! Entramos en la carpeta 'server' donde está el package.json
+# Entramos en la carpeta del servidor e instalamos solo las dependencias
 WORKDIR /app/bgutil-engine/server
+RUN npm install
 
-# Instalamos las dependencias de Node.js y compilamos el generador
-RUN npm install && npm run build
-
-# 3. Configuramos nuestra aplicación de Python
+# 3. Configuramos la aplicación de Python
 WORKDIR /app
-
-# Copiamos e instalamos librerías de Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiamos el resto de tu código (incluida la carpeta yt_dlp_plugins)
+# Copiamos el resto de tu código (incluyendo la carpeta yt_dlp_plugins)
 COPY . .
 
 # Configuración de puerto para Render
 ENV PORT=7860
 EXPOSE 7860
 
-# Arrancamos la web
 CMD ["python", "app.py"]
