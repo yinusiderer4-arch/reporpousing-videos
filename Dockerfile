@@ -1,6 +1,6 @@
 FROM python:3.10-slim
 
-# 1. Node 20 (Estándar actual)
+# 1. Instalamos Node 20 (Necesario para el reto de YouTube)
 RUN apt-get update && apt-get install -y \
     ffmpeg curl git \
     && curl -sL https://deb.nodesource.com/setup_20.x | bash - \
@@ -13,13 +13,13 @@ RUN git clone https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /app/b
 WORKDIR /app/bgutil-engine/server
 RUN npm install
 
-# --- EL TRUCO CJS ---
-# --format=cjs: Obliga a usar 'require' (más compatible y robusto)
-# --outfile=...js: Mantiene la extensión .js que el plugin exige
-# --platform=node: Asegura que funcionen los módulos nativos
+# --- LA CIRUGÍA ---
+# 1. Formato CJS (para que Node no se queje del require)
+# 2. Extensión .js (para que el plugin no se queje del nombre)
+# 3. Ruta /app/generate_once.js (la que hemos hardcodeado en el python)
 RUN npx esbuild src/generate_once.ts --bundle --platform=node --format=cjs --outfile=/app/generate_once.js --external:canvas --external:jsdom
 
-# 3. App Python
+# 3. Copiamos tu App y el Plugin MODIFICADO
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
