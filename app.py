@@ -101,7 +101,7 @@ def transformar():
     
     ydl_opts = {
         'verbose': True,
-        'format': 'bestaudio/best',
+        'format': 'm4a',
         'outtmpl': f'/tmp/audio_{hash(url)}.m4a',
         'nocheckcertificate': True,
         'cookiefile': cookie_path if cookies_content else None,
