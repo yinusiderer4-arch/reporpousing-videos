@@ -35,24 +35,24 @@ def transformar():
         with open(cookie_path, "w") as f: f.write(cookies_content)
 
     ydl_opts = {
-        # Cambiamos la prioridad: si no hay m4a, que busque cualquier cosa que suene
-        'format': 'bestaudio/best', 
+        'format': 'bestaudio/best',
         'outtmpl': nombre_archivo,
         'cookiefile': cookie_path if cookies_content else None,
-        'quiet': False, 
+        'quiet': False,
         'no_warnings': False,
         'nocheckcertificate': True,
         
-        # ESTRATEGIA DE CLIENTE: La TV es la clave cuando falla el móvil
+        # ESTRATEGIA: Usamos web_safari que es muy estable con cookies
         'extractor_args': {
             'youtube': {
-                'player_client': ['tv', 'ios', 'mweb'],
-                'player_skip': ['webpage', 'configs'], # Saltamos la parte web que da errores
+                'player_client': ['web_safari'],
+                # Intentamos forzar que ignore el reto n si es posible
+                'skip': ['hls', 'dash'],
             }
         },
         
-        # Forzamos cabeceras que coincidan con una TV/Móvil
-        'user_agent': 'Mozilla/5.0 (Chromecast; Google TV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        # User Agent de Safari en Mac (coincide con el cliente)
+        'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
     }
 
     try:
