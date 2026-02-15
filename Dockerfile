@@ -1,6 +1,6 @@
 FROM python:3.10-slim
 
-# 1. Instalamos Node 20 y dependencias de compilación
+# 1. Node 20 (Estándar actual)
 RUN apt-get update && apt-get install -y \
     ffmpeg curl git \
     && curl -sL https://deb.nodesource.com/setup_20.x | bash - \
@@ -13,10 +13,11 @@ RUN git clone https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /app/b
 WORKDIR /app/bgutil-engine/server
 RUN npm install
 
-# --- LA CORRECCIÓN CLAVE ---
-# El archivo DEBE llamarse generate_once.js para que el plugin de Python lo acepte.
-# Incluimos 'jsdom' para que el reto de YouTube sea indistinguible de un humano.
-RUN npx esbuild src/generate_once.ts --platform=node --bundle --format=esm --outfile=/app/generate_once.js --external:canvas
+# --- EL TRUCO CJS ---
+# --format=cjs: Obliga a usar 'require' (más compatible y robusto)
+# --outfile=...js: Mantiene la extensión .js que el plugin exige
+# --platform=node: Asegura que funcionen los módulos nativos
+RUN npx esbuild src/generate_once.ts --bundle --platform=node --format=cjs --outfile=/app/generate_once.js --external:canvas --external:jsdom
 
 # 3. App Python
 WORKDIR /app
@@ -24,6 +25,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
+# Permisos
 RUN chmod 755 /app/generate_once.js
 
 ENV PORT=7860
