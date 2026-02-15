@@ -1,29 +1,35 @@
 import os
 import yt_dlp
+import subprocess
 from flask import Flask, render_template, request, jsonify
 from groq import Groq
-import subprocess
 
 app = Flask(__name__)
 
-# 1. Configuración de Clientes (Groq)
-# Asegúrate de tener GROQ_API_KEY en los Secrets de Render
+# Configuración de Groq
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-# 2. Funciones auxiliares
 def comprimir_audio(ruta_original):
-    ruta_comprimido = ruta_original.replace(".m4a", "_comp.mp3")
-    # Bajamos el bitrate a 32k para que un audio de 1 hora ocupe unos 14MB
-    comando = [
-        "ffmpeg", "-i", ruta_original,
-        "-vn", "-ar", "16000", "-ac", "1", "-b:a", "32k",
-        ruta_comprimido
-    ]
-    subprocess.run(comando, check=True)
-    return ruta_comprimido
-    
+    """
+    Usa ffmpeg para bajar el peso del archivo drásticamente.
+    Convierte a mono, baja el muestreo a 16kHz y el bitrate a 32kbps.
+    """
+    ruta_comprimido = ruta_original.rsplit('.', 1)[0] + "_lite.mp3"
+    try:
+        comando = [
+            "ffmpeg", "-y", "-i", ruta_original,
+            "-vn", "-ar", "16000", "-ac", "1", "-b:a", "32k",
+            ruta_comprimido
+        ]
+        # Ejecutamos el comando de sistema
+        subprocess.run(comando, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return ruta_comprimido
+    except Exception as e:
+        print(f"Error al comprimir: {e}")
+        return ruta_original # Si falla, intentamos con el original
+
 def procesar_con_groq(ruta_audio):
-    """Envía el audio a la API de Groq para transcripción rápida."""
+    """Envía el audio (ya comprimido) a Groq."""
     try:
         with open(ruta_audio, "rb") as file:
             transcription = client.audio.transcriptions.create(
@@ -35,60 +41,48 @@ def procesar_con_groq(ruta_audio):
     except Exception as e:
         return f"Error en Groq: {str(e)}"
 
-# 3. Rutas de la aplicación
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/subir', methods=['POST'])
 def subir_archivo():
-    """Ruta de respaldo: permite procesar archivos locales si YouTube falla."""
     if 'file' not in request.files:
-        return jsonify({"error": "No hay archivo en la petición"}), 400
+        return jsonify({"error": "No hay archivo"}), 400
     
     archivo = request.files['file']
-    if archivo.filename == '':
-        return jsonify({"error": "No se seleccionó ningún archivo"}), 400
-
     ruta_temp = f"/tmp/{archivo.filename}"
     archivo.save(ruta_temp)
     
-    texto = procesar_con_groq(ruta_temp)
+    # LLAMADA A LA FUNCIÓN: Comprimimos antes de enviar
+    ruta_para_groq = comprimir_audio(ruta_temp)
     
-    if os.path.exists(ruta_temp):
-        os.remove(ruta_temp)
+    texto = procesar_con_groq(ruta_para_groq)
+    
+    # Limpieza: Borramos ambos archivos
+    if os.path.exists(ruta_temp): os.remove(ruta_temp)
+    if os.path.exists(ruta_para_groq) and ruta_para_groq != ruta_temp:
+        os.remove(ruta_para_groq)
     
     return jsonify({"transcripcion": texto})
 
 @app.route('/transformar', methods=['POST'])
 def transformar():
-    """Ruta principal: descarga de YouTube y transcripción."""
     url = request.form.get('url')
-    if not url:
-        return jsonify({"error": "URL no proporcionada"}), 400
-
-    nombre_archivo = f"/tmp/audio_{hash(url)}.m4a"
+    nombre_base = f"/tmp/audio_{hash(url)}"
+    nombre_original = f"{nombre_base}.m4a"
     
-    # Manejo de Cookies desde variables de entorno
     cookies_content = os.getenv("YT_COOKIES")
     cookie_path = "/tmp/cookies.txt"
     if cookies_content:
-        with open(cookie_path, "w") as f:
-            f.write(cookies_content)
+        with open(cookie_path, "w") as f: f.write(cookies_content)
 
     ydl_opts = {
         'format': 'bestaudio/best',
-        'outtmpl': nombre_archivo,
+        'outtmpl': nombre_original,
         'cookiefile': cookie_path if cookies_content else None,
-        'quiet': False,
-        'no_warnings': False,
         'nocheckcertificate': True,
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['web_safari'],
-                'skip': ['hls', 'dash'],
-            }
-        },
+        'extractor_args': {'youtube': {'player_client': ['web_safari']}},
         'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
     }
 
@@ -96,26 +90,30 @@ def transformar():
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
         
-        # Si yt-dlp descargó un archivo con otra extensión (ej. .webm), lo buscamos
-        archivo_real = None
+        # Localizamos el archivo descargado (por si yt-dlp cambió la extensión)
+        archivo_descargado = None
         for f in os.listdir("/tmp"):
             if f.startswith(f"audio_{hash(url)}"):
-                archivo_real = os.path.join("/tmp", f)
+                archivo_descargado = os.path.join("/tmp", f)
                 break
         
-        if not archivo_real:
-            return jsonify({"error": "No se encontró el archivo descargado"}), 500
+        if not archivo_descargado:
+            return jsonify({"error": "No se pudo descargar el audio"}), 500
 
-        texto = procesar_con_groq(archivo_real)
-        os.remove(archivo_real)
-        
+        # LLAMADA A LA FUNCIÓN: Comprimimos el audio de YouTube
+        ruta_para_groq = comprimir_audio(archivo_descargado)
+
+        texto = procesar_con_groq(ruta_para_groq)
+
+        # Limpieza total
+        if os.path.exists(archivo_descargado): os.remove(archivo_descargado)
+        if os.path.exists(ruta_para_groq) and ruta_para_groq != archivo_descargado:
+            os.remove(ruta_para_groq)
+            
         return jsonify({"transcripcion": texto})
-    
     except Exception as e:
-        return jsonify({"error": f"Fallo al descargar/procesar: {str(e)}"}), 500
+        return jsonify({"error": str(e)}), 500
 
-# 4. Arranque del servidor
 if __name__ == '__main__':
-    # Puerto dinámico para Render
     port = int(os.environ.get("PORT", 7860))
     app.run(host='0.0.0.0', port=port)
