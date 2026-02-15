@@ -91,9 +91,8 @@ def subir_archivo():
 @app.route('/transformar', methods=['POST'])
 def transformar():
     url = request.form.get('url')
-    path_js = '/app/generate_once.js'
     
-    # GESTIÓN DE COOKIES (Vital ahora mismo)
+    # GESTIÓN DE COOKIES (El pase VIP)
     cookies_content = os.getenv("YT_COOKIES")
     cookie_path = "/tmp/cookies.txt"
     if cookies_content:
@@ -105,16 +104,15 @@ def transformar():
         'format': 'bestaudio/best',
         'outtmpl': f'/tmp/audio_{hash(url)}.m4a',
         'nocheckcertificate': True,
-        'cookiefile': cookie_path if cookies_content else None, # Aquí inyectamos tu identidad
+        'cookiefile': cookie_path if cookies_content else None,
         'extractor_args': {
-            'youtubepot-bgutilscript': {
-                'script_path': path_js
-            },
             'youtube': {
-                # iOS + Cookies es la combinación ganadora para IPs de Datacenter
-                'player_client': ['ios', 'tv'], 
+                # iOS + Cookies suele ser la combinación ganadora en Datacenters
+                'player_client': ['ios', 'tv'],
                 'player_skip': ['web', 'web_music', 'android']
             }
+            # NOTA: Ya no pasamos 'youtubepot-bgutilscript' porque 
+            # lo hemos hardcodeado en el propio archivo python.
         },
         'js_runtimes': {'node': {}}
     }
