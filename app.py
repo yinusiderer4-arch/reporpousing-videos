@@ -105,24 +105,25 @@ def transformar():
     if cookies_content:
         with open(cookie_path, "w") as f: f.write(cookies_content)
 
+    # Asegúrate de que esta ruta sea exacta
+    path_js = '/app/bgutil-engine/server/generate_once.js'
+    
     ydl_opts = {
-        'logger': MyLogger(),
-        'verbose': True, # Esto es vital para debuguear
+        'verbose': True, # Mantenlo para ver si el mensaje cambia a "Generating POT..."
         'format': 'bestaudio/best',
-        'outtmpl': nombre_original,
+        'outtmpl': f'/tmp/%(id)s.%(ext)s',
         'cookiefile': cookie_path if cookies_content else None,
         'nocheckcertificate': True,
-        
-        # ACTIVAMOS LA MAGIA NEGRA
         'extractor_args': {
             'youtube': {
                 'player_client': ['web', 'tv'],
             },
-            # Aquí le decimos al plugin dónde está el archivo JS que genera el token
+            # EL NOMBRE DEBE SER EXACTO: youtubepot-bgutilscript
             'youtubepot-bgutilscript': {
-                'script_path': '/app/bgutil-engine/server/build/generate_once.js'
+                'script_path': path_js
             }
         },
+        # Añadimos esto para ayudar a encontrar Node
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
     }
 
