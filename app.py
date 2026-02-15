@@ -82,10 +82,17 @@ def subir_archivo():
 @app.route('/transformar', methods=['POST'])
 def transformar():
     url = request.form.get('url')
+    if not url:
+        return jsonify({"error": "URL no proporcionada"}), 400
+
     nombre_base = f"/tmp/audio_{hash(url)}"
     nombre_original = f"{nombre_base}.m4a"
     
+    # Manejo de Cookies y Tokens de entorno
     cookies_content = os.getenv("YT_COOKIES")
+    po_token = os.getenv("YT_PO_TOKEN")
+    visitor_data = os.getenv("YT_VISITOR_DATA")
+    
     cookie_path = "/tmp/cookies.txt"
     if cookies_content:
         with open(cookie_path, "w") as f: f.write(cookies_content)
@@ -94,16 +101,32 @@ def transformar():
         'format': 'bestaudio/best',
         'outtmpl': nombre_original,
         'cookiefile': cookie_path if cookies_content else None,
+        'quiet': False, # Queremos ver todo el detalle en los logs si falla
+        'no_warnings': False,
         'nocheckcertificate': True,
-        'extractor_args': {'youtube': {'player_client': ['web_safari']}},
-        'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+        
+        # CONFIGURACIÓN MAESTRA DE EXTRACTORES
+        'extractor_args': {
+            'youtube': {
+                # Probamos TV (robusto) y Web Safari (bueno con cookies)
+                'player_client': ['tv', 'web_safari'],
+                # Si conseguiste el token, se inyecta aquí
+                'po_token': f'web+{po_token}' if po_token else None,
+                'visitor_data': visitor_data if visitor_data else None,
+            }
+        },
+        
+        # User Agent genérico de alta compatibilidad
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-        
-        # Localizamos el archivo descargado (por si yt-dlp cambió la extensión)
+            # 1. Extraemos info para validar que el video es accesible
+            info = ydl.extract_info(url, download=True)
+            print(f"Descarga completada: {info.get('title')}")
+
+        # 2. Localizar archivo real (yt-dlp puede cambiar la extensión)
         archivo_descargado = None
         for f in os.listdir("/tmp"):
             if f.startswith(f"audio_{hash(url)}"):
@@ -111,22 +134,26 @@ def transformar():
                 break
         
         if not archivo_descargado:
-            return jsonify({"error": "No se pudo descargar el audio"}), 500
+            return jsonify({"error": "YouTube no entregó el archivo de audio."}), 500
 
-        # LLAMADA A LA FUNCIÓN: Comprimimos el audio de YouTube
+        # 3. Comprimir para Groq
         ruta_para_groq = comprimir_audio(archivo_descargado)
 
-        texto = procesar_con_groq(ruta_para_groq)
+        # 4. Transcribir y Formatear
+        texto_bruto = procesar_con_groq(ruta_para_groq)
+        texto_final = formatear_transcripcion(texto_bruto)
 
-        # Limpieza total
+        # 5. Limpieza
         if os.path.exists(archivo_descargado): os.remove(archivo_descargado)
         if os.path.exists(ruta_para_groq) and ruta_para_groq != archivo_descargado:
             os.remove(ruta_para_groq)
-        texto_final = formatear_transcripcion(texto)
+            
         return jsonify({"transcripcion": texto_final})
-        
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        error_msg = str(e)
+        print(f"ERROR YOUTUBE: {error_msg}")
+        return jsonify({"error": f"YouTube bloqueó la petición. Intenta subiendo el archivo directamente. Detalle: {error_msg}"}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 7860))
