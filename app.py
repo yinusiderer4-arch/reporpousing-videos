@@ -100,14 +100,7 @@ def transformar():
     print(f"--- DIAGNÓSTICO ---")
     print(f"¿Archivo .mjs existe?: {os.path.exists(path_js)}")
 
-    # 2. COOKIES (Mantenlas, pero asegúrate de que sean frescas)
-    # Si YouTube te sigue pidiendo "Sign in", es que estas cookies han muerto.
-    cookies_content = os.getenv("YT_COOKIES")
-    cookie_path = "/tmp/cookies.txt"
-    if cookies_content:
-        with open(cookie_path, "w") as f:
-            f.write(cookies_content)
-
+   
     # 3. OPCIONES DE DESCARGA (Limpias)
     nombre_original = f"/tmp/audio_{hash(url)}.m4a"
     
