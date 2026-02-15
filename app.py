@@ -26,33 +26,34 @@ def index():
 @app.route('/transformar', methods=['POST'])
 def transformar():
     url = request.form.get('url')
-    if not url:
-        return jsonify({"error": "URL no válida"}), 400
-
     nombre_archivo = f"/tmp/audio_{hash(url)}.m4a"
     
-    # Descarga ligera (solo audio)
+    # Recuperamos cookies de los secretos de Render
+    cookies_content = os.getenv("YT_COOKIES")
+    cookie_path = "/tmp/cookies.txt"
+    if cookies_content:
+        with open(cookie_path, "w") as f: f.write(cookies_content)
+
     ydl_opts = {
         'format': '140',
         'outtmpl': nombre_archivo,
+        'cookiefile': cookie_path if cookies_content else None,
         'quiet': True,
-        'no_warnings': True,
+        # Este parámetro ayuda a saltar bloqueos en servidores
+        'nocheckcertificate': True,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
         
-        # Mandar a Groq
         texto = procesar_con_groq(nombre_archivo)
-        
-        # Limpiar
-        if os.path.exists(nombre_archivo):
-            os.remove(nombre_archivo)
-            
+        os.remove(nombre_archivo)
         return jsonify({"transcripcion": texto})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        # Esto enviará el error real al frontend en lugar de 'undefined'
+        return jsonify({"error": f"Fallo al descargar/procesar: {str(e)}"}), 500
 
 if __name__ == '__main__':
     # SOLUCIÓN AL ERROR DE PUERTOS: Render inyecta el puerto en esta variable
