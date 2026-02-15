@@ -9,6 +9,19 @@ app = Flask(__name__)
 # Configuración de Groq
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
+def formatear_transcripcion(texto_plano):
+    """Usa Llama 3 para añadir párrafos, mayúsculas y corregir errores."""
+    try:
+        completion = client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[
+                {"role": "system", "content": "Eres un editor experto. Tu tarea es coger una transcripción en bruto y darle formato: añade párrafos lógicos, pon mayúsculas donde falten y corrige palabras mal transcritas por el audio. Devuelve solo el texto formateado, sin comentarios extras."},
+                {"role": "user", "content": texto_plano}
+            ]
+        )
+        return completion.choices[0].message.content
+    except:
+        return texto_plano # Si falla la IA de formato, devolvemos el texto original
 def comprimir_audio(ruta_original):
     """
     Usa ffmpeg para bajar el peso del archivo drásticamente.
@@ -109,8 +122,9 @@ def transformar():
         if os.path.exists(archivo_descargado): os.remove(archivo_descargado)
         if os.path.exists(ruta_para_groq) and ruta_para_groq != archivo_descargado:
             os.remove(ruta_para_groq)
-            
-        return jsonify({"transcripcion": texto})
+        texto_final = formatear_transcripcion(texto)
+        return jsonify({"transcripcion": texto_final})
+        
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
