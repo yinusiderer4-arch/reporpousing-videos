@@ -92,8 +92,12 @@ def subir_archivo():
 def transformar():
     url = request.form.get('url')
     
-    # NO pasamos script_path. El plugin lo detectará solo en /root/ gracias al Dockerfile.
-    # NO usamos cookies (protocolo de eliminación confirmado).
+    # RUTA ABSOLUTA que creamos en el Dockerfile
+    path_js = '/app/motor_tokens.js'
+    
+    # Debug para confirmar en el log de Render
+    print(f"--- VERIFICACIÓN FINAL ---")
+    print(f"¿Existe motor_tokens.js?: {os.path.exists(path_js)}")
     
     ydl_opts = {
         'verbose': True,
