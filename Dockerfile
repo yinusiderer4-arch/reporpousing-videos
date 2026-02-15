@@ -1,25 +1,29 @@
 FROM python:3.10-slim
 
-# 1. Instalamos Node 20 (Necesario para el reto de YouTube)
+# 1. Instalamos Node 20 y dependencias de compilación para Canvas
 RUN apt-get update && apt-get install -y \
-    ffmpeg curl git \
+    ffmpeg curl git build-essential libcairo2-dev libpango1.0-dev libjpeg-dev \
+    libgif-dev librsvg2-dev \
     && curl -sL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Preparamos el motor
+# 2. Preparamos el entorno en /app
 WORKDIR /app
+
+# --- PASO CRÍTICO: Instalar dependencias donde va a vivir el script ---
+# Instalamos jsdom y canvas aquí mismo para que el script los encuentre
+RUN npm install jsdom canvas
+
+# 3. Clonamos y construimos el motor
 RUN git clone https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /app/bgutil-engine
 WORKDIR /app/bgutil-engine/server
 RUN npm install
-
-# --- LA CIRUGÍA ---
-# 1. Formato CJS (para que Node no se queje del require)
-# 2. Extensión .js (para que el plugin no se queje del nombre)
-# 3. Ruta /app/generate_once.js (la que hemos hardcodeado en el python)
+# Compilamos a CJS y lo enviamos a /app/generate_once.js
+# Mantenemos 'external' porque ahora SÍ estarán en /app/node_modules
 RUN npx esbuild src/generate_once.ts --bundle --platform=node --format=cjs --outfile=/app/generate_once.js --external:canvas --external:jsdom
 
-# 3. Copiamos tu App y el Plugin MODIFICADO
+# 4. Volvemos a /app y copiamos tu código Python
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
