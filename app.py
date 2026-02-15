@@ -3,12 +3,20 @@ import yt_dlp
 import subprocess
 from flask import Flask, render_template, request, jsonify
 from groq import Groq
+import logging
 
 app = Flask(__name__)
 
 # Configuración de Groq
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
+class MyLogger:
+    def debug(self, msg):
+        if msg.startswith('[debug] ') or msg.startswith('[youtube]'):
+            print(msg)
+    def info(self, msg): print(msg)
+    def warning(self, msg): print(msg)
+    def error(self, msg): print(msg)
 def formatear_transcripcion(texto_plano):
     """Usa Llama 3 para añadir párrafos, mayúsculas y corregir errores."""
     try:
@@ -98,6 +106,8 @@ def transformar():
         with open(cookie_path, "w") as f: f.write(cookies_content)
 
     ydl_opts = {
+        'logger': MyLogger(),
+        'verbose': True, # Esto es vital para debuguear
         'format': 'bestaudio/best',
         'outtmpl': nombre_original,
         'cookiefile': cookie_path if cookies_content else None,
