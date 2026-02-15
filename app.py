@@ -94,8 +94,8 @@ def transformar():
     if not url:
         return jsonify({"error": "URL no proporcionada"}), 400
         
-    # NUEVA RUTA: Ahora dentro de la carpeta server y con extensión .mjs
-    path_js = '/app/bgutil-engine/server/generate_once.mjs'
+    # NUEVA RUTA: Ahora dentro de la carpeta server y con extensión .js
+    path_js = '/app/bgutil-engine/server/generate_once.js'
     
     print(f"--- DIAGNÓSTICO ---")
     print(f"¿Archivo .mjs existe?: {os.path.exists(path_js)}")
