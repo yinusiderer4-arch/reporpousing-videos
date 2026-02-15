@@ -35,27 +35,19 @@ def transformar():
         with open(cookie_path, "w") as f: f.write(cookies_content)
 
     ydl_opts = {
-        
-        'format': 'ba/b', 
+        'format': 'bestaudio/best',
         'outtmpl': nombre_archivo,
         'cookiefile': cookie_path if cookies_content else None,
-        'quiet': False, # Cambia a False para ver el detalle en los logs de Render
+        'quiet': False,
         'no_warnings': False,
-        
-        # ESTO ES LA CLAVE: Suplanta un cliente que YouTube no suele bloquear
+        'nocheckcertificate': True,
+        # Eliminamos 'android' para que no choque con las cookies
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'web'],
-                'skip': ['hls', 'dash']
+                'player_client': ['web', 'ios'], 
             }
         },
-        
-        # Cabeceras profesionales
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-        }
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
     }
 
     try:
