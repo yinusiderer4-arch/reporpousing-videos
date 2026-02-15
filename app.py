@@ -91,25 +91,24 @@ def subir_archivo():
 @app.route('/transformar', methods=['POST'])
 def transformar():
     url = request.form.get('url')
-    # Ruta absoluta verificada por tu diagnóstico
-    path_js = '/app/motor_tokens.js'
+    # Usamos el nombre que el plugin exige
+    path_js = '/app/generate_once.js'
     
     print(f"--- INICIANDO DESCARGA ---")
     print(f"Ruta motor: {path_js} | Existe: {os.path.exists(path_js)}")
-
     ydl_opts = {
         'verbose': True,
         'format': 'bestaudio/best',
         'outtmpl': f'/tmp/audio_{hash(url)}.m4a',
         'nocheckcertificate': True,
-        # IMPORTANTE: Estructura exacta para el plugin bgutil:script
         'extractor_args': {
             'youtubepot-bgutilscript': {
                 'script_path': path_js
             },
             'youtube': {
-                'player_client': ['android'], # Solo Android, es el más estable con POT
-                'player_skip': ['web', 'tv']   # Saltamos TV para evitar tu sospecha
+                # iOS es actualmente más robusto contra el LOGIN_REQUIRED
+                'player_client': ['ios', 'android', 'tv'],
+                'player_skip': ['web', 'web_music']
             }
         },
         'js_runtimes': {'node': {}}
