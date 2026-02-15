@@ -91,24 +91,29 @@ def subir_archivo():
 @app.route('/transformar', methods=['POST'])
 def transformar():
     url = request.form.get('url')
-    # Usamos el nombre que el plugin exige
     path_js = '/app/generate_once.js'
     
-    print(f"--- INICIANDO DESCARGA ---")
-    print(f"Ruta motor: {path_js} | Existe: {os.path.exists(path_js)}")
+    # GESTIÓN DE COOKIES (Vital ahora mismo)
+    cookies_content = os.getenv("YT_COOKIES")
+    cookie_path = "/tmp/cookies.txt"
+    if cookies_content:
+        with open(cookie_path, "w") as f:
+            f.write(cookies_content)
+    
     ydl_opts = {
         'verbose': True,
         'format': 'bestaudio/best',
         'outtmpl': f'/tmp/audio_{hash(url)}.m4a',
         'nocheckcertificate': True,
+        'cookiefile': cookie_path if cookies_content else None, # Aquí inyectamos tu identidad
         'extractor_args': {
             'youtubepot-bgutilscript': {
                 'script_path': path_js
             },
             'youtube': {
-                # iOS es actualmente más robusto contra el LOGIN_REQUIRED
-                'player_client': ['ios', 'android', 'tv'],
-                'player_skip': ['web', 'web_music']
+                # iOS + Cookies es la combinación ganadora para IPs de Datacenter
+                'player_client': ['ios', 'tv'], 
+                'player_skip': ['web', 'web_music', 'android']
             }
         },
         'js_runtimes': {'node': {}}
