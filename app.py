@@ -91,28 +91,27 @@ def subir_archivo():
 @app.route('/transformar', methods=['POST'])
 def transformar():
     url = request.form.get('url')
-    
-    # RUTA ABSOLUTA que creamos en el Dockerfile
+    # Ruta absoluta verificada por tu diagnóstico
     path_js = '/app/motor_tokens.js'
     
-    # Debug para confirmar en el log de Render
-    print(f"--- VERIFICACIÓN FINAL ---")
-    print(f"¿Existe motor_tokens.js?: {os.path.exists(path_js)}")
-    
+    print(f"--- INICIANDO DESCARGA ---")
+    print(f"Ruta motor: {path_js} | Existe: {os.path.exists(path_js)}")
+
     ydl_opts = {
         'verbose': True,
         'format': 'bestaudio/best',
         'outtmpl': f'/tmp/audio_{hash(url)}.m4a',
         'nocheckcertificate': True,
+        # IMPORTANTE: Estructura exacta para el plugin bgutil:script
         'extractor_args': {
+            'youtubepot-bgutilscript': {
+                'script_path': path_js
+            },
             'youtube': {
-                # 'android' es el cliente más resistente a bloqueos en 2026
-                'player_client': ['android', 'tv'],
-                # Saltamos el cliente web que es el que da problemas de "Sign in"
-                'player_skip': ['web', 'web_music', 'ios'],
+                'player_client': ['android'], # Solo Android, es el más estable con POT
+                'player_skip': ['web', 'tv']   # Saltamos TV para evitar tu sospecha
             }
         },
-        # Forzamos a que yt-dlp use el motor Node que instalamos
         'js_runtimes': {'node': {}}
     }
 
