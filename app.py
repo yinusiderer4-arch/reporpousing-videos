@@ -101,22 +101,18 @@ def transformar():
         'format': 'bestaudio/best',
         'outtmpl': nombre_original,
         'cookiefile': cookie_path if cookies_content else None,
-        'quiet': False, # Queremos ver todo el detalle en los logs si falla
-        'no_warnings': False,
         'nocheckcertificate': True,
         
-        # CONFIGURACIÓN MAESTRA DE EXTRACTORES
+        # ACTIVAMOS LA MAGIA NEGRA
         'extractor_args': {
             'youtube': {
-                # Probamos TV (robusto) y Web Safari (bueno con cookies)
-                'player_client': ['tv', 'web_safari'],
-                # Si conseguiste el token, se inyecta aquí
-                'po_token': f'web+{po_token}' if po_token else None,
-                'visitor_data': visitor_data if visitor_data else None,
+                'player_client': ['web', 'tv'],
+            },
+            # Aquí le decimos al plugin dónde está el archivo JS que genera el token
+            'youtubepot-bgutilscript': {
+                'script_path': '/app/bgutil-engine/server/build/generate_once.js'
             }
         },
-        
-        # User Agent genérico de alta compatibilidad
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
     }
 
