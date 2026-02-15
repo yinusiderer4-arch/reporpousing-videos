@@ -52,20 +52,26 @@
             loader.classList.remove('hidden');
             result.classList.add('hidden');
 
+           
             try {
                 const response = await fetch('/transformar', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                     body: `url=${encodeURIComponent(url)}`
                 });
-
+            
                 const data = await response.json();
                 
-                document.getElementById('transcripcion').innerText = data.transcripcion;
-                result.classList.remove('hidden');
+                if (data.error) {
+                    // Si el servidor devuelve un error, lo mostramos
+                    alert("Error del servidor: " + data.error);
+                } else {
+                    document.getElementById('transcripcion').innerText = data.transcripcion;
+                    result.classList.remove('hidden');
+                }
             } catch (error) {
-                alert("Hubo un error al procesar el video. Inténtalo de nuevo.");
-            } finally {
+                alert("Hubo un fallo de conexión con el servidor.");
+            }finally {
                 btn.disabled = false;
                 btn.classList.remove('opacity-50');
                 loader.classList.add('hidden');
