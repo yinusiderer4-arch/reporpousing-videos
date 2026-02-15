@@ -92,7 +92,7 @@ def subir_archivo():
 def transformar():
     url = request.form.get('url')
     
-    # COOKIES NECESARIAS (IP Datacenter)
+    # Mantenemos las cookies (necesarias por la IP)
     cookies_content = os.getenv("YT_COOKIES")
     cookie_path = "/tmp/cookies.txt"
     if cookies_content:
@@ -106,19 +106,21 @@ def transformar():
         'nocheckcertificate': True,
         'cookiefile': cookie_path if cookies_content else None,
         
-        # --- LA SOLUCIÓN TÉCNICA ---
-        # 1. Permitimos que yt-dlp descargue el "solver" para el reto de TV
-        # Esto elimina el error "n challenge solving failed"
-        'allow_remote_components': True, # Permitir componentes externos
-        # Ojo: En algunas versiones se pasa así, pero aseguramos con extractor_args abajo también si hace falta
+        # --- LA SOLUCIÓN AL WARNING ---
+        # Esto equivale a --remote-components ejs:github
+        # Le dice a yt-dlp: "Descarga el script de solución desde GitHub y úsalo con Node"
+        'params': {
+            'remote_components': {'ejs': 'github'},
+        },
         
         'extractor_args': {
             'youtube': {
-                # 2. Forzamos SOLO TV (el único que acepta cookies + token sin quejarse)
+                # Mantenemos TV + Cookies, que es la combinación más dura
                 'player_client': ['tv'],
                 'player_skip': ['web', 'web_music', 'android', 'ios']
             }
         },
+        # Esto asegura que use el Node que instalamos en Docker
         'js_runtimes': {'node': {}}
     }
 
