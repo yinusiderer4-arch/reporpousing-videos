@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Content Transcriber</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="max-w-2xl w-full bg-white rounded-2xl shadow-xl p-8">
+        <h1 class="text-3xl font-bold text-slate-800 mb-2 text-center">Video AI Transcriber</h1>
+        <p class="text-slate-500 text-center mb-8">Convierte cualquier video de YouTube en texto profesional para tus redes sociales.</p>
+
+        <div class="space-y-4">
+            <input type="text" id="videoUrl" placeholder="Pega el link de YouTube aquí..." 
+                   class="w-full px-4 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none transition">
+            
+            <button onclick="procesarVideo()" id="btnAction"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition transform active:scale-95">
+                Generar Transcripción
+            </button>
+        </div>
+
+        <div id="loader" class="hidden mt-8 text-center">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div>
+            <p class="mt-2 text-slate-600 italic">La IA está escuchando y procesando el audio... esto puede tardar un minuto.</p>
+        </div>
+
+        <div id="resultContainer" class="hidden mt-8">
+            <h3 class="text-lg font-semibold text-slate-700 mb-2">Resultado:</h3>
+            <div id="transcripcion" class="bg-slate-100 p-4 rounded-lg text-slate-800 text-sm max-h-60 overflow-y-auto whitespace-pre-wrap border border-slate-200">
+            </div>
+            <button onclick="copyToClipboard()" class="mt-4 text-indigo-600 text-sm font-medium hover:underline">
+                Copiar al portapapeles
+            </button>
+        </div>
+    </div>
+
+    <script>
+        async function procesarVideo() {
+            const url = document.getElementById('videoUrl').value;
+            const btn = document.getElementById('btnAction');
+            const loader = document.getElementById('loader');
+            const result = document.getElementById('resultContainer');
+
+            if(!url) return alert("Por favor, pega una URL");
+
+            // UI State
+            btn.disabled = true;
+            btn.classList.add('opacity-50');
+            loader.classList.remove('hidden');
+            result.classList.add('hidden');
+
+            try {
+                const response = await fetch('/transformar', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: `url=${encodeURIComponent(url)}`
+                });
+
+                const data = await response.json();
+                
+                document.getElementById('transcripcion').innerText = data.transcripcion;
+                result.classList.remove('hidden');
+            } catch (error) {
+                alert("Hubo un error al procesar el video. Inténtalo de nuevo.");
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50');
+                loader.classList.add('hidden');
+            }
+        }
+
+        function copyToClipboard() {
+            const text = document.getElementById('transcripcion').innerText;
+            navigator.clipboard.writeText(text);
+            alert("¡Copiado!");
+        }
+    </script>
+</body>
+</html>
