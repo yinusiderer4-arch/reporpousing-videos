@@ -93,12 +93,11 @@ def transformar():
     url = request.form.get('url')
     if not url:
         return jsonify({"error": "URL no proporcionada"}), 400
-
-    # 1. DIAGNÓSTICO (Para ver en los logs de Render)
+    path_js = '/app/bgutil-engine/server/build/generate_once.js'
+    # DIAGNÓSTICO MEJORADO
     print(f"--- DIAGNÓSTICO ---")
-    print(f"¿Node instalado?: {shutil.which('node')}")
-    # Esta ruta es la que configuramos en el nuevo Dockerfile
-    print(f"¿Motor de tokens?: {os.path.exists('/root/bgutil-ytdlp-pot-provider/server/generate_once.js')}")
+    print(f"¿Node en PATH?: {shutil.which('node')}")
+    print(f"¿Archivo JS existe?: {os.path.exists(path_js)}")
 
     # 2. COOKIES (Mantenlas, pero asegúrate de que sean frescas)
     # Si YouTube te sigue pidiendo "Sign in", es que estas cookies han muerto.
@@ -112,17 +111,21 @@ def transformar():
     nombre_original = f"/tmp/audio_{hash(url)}.m4a"
     
     ydl_opts = {
-        'verbose': True, # Vital para ver si Node y el Script se activan
+        'verbose': True,
         'format': 'bestaudio/best',
-        'outtmpl': nombre_original,
-        'cookiefile': cookie_path if cookies_content else None,
+        'outtmpl': f'/tmp/audio_{hash(url)}.m4a',
         'nocheckcertificate': True,
         'extractor_args': {
             'youtube': {
                 'player_client': ['web', 'tv'],
+            },
+            # Le damos la ruta mascada al plugin
+            'youtubepot-bgutilscript': {
+                'script_path': path_js
             }
-            # NO ponemos el path aquí, el plugin lo buscará solo en /root/
-        }
+        },
+        # Forzamos a yt-dlp a usar el ejecutable de node
+        'js_runtimes': ['node'] 
     }
 
     try:
