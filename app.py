@@ -104,8 +104,8 @@ def generar_pack_viral(texto_transcrito):
             
             # 2. PROMPT OPTIMIZADO (Ahorro de energía)
             prompt = """
-            Eres un Editor Jefe experto en viralidad.
-            Tu objetivo es REEMPAQUETAR la transcripción para redes sociales.
+            Eres un Editor Jefe experto en viralidad y en la juventud de hoy en día.
+            Tu objetivo es REEMPAQUETAR la transcripción para que esté completamente listo para publicar en redes sociales, incluso para pasar como prompt a IAs de generación de imágenes o vídeos.
             
             REGLAS CRÍTICAS:
             1. Responde SOLO con un JSON válido.
@@ -113,10 +113,10 @@ def generar_pack_viral(texto_transcrito):
             
             ESTRUCTURA JSON OBLIGATORIA:
             {
-                "resumen": "3 frases impactantes y directas.",
+                "resumen": "Empieza con 3 frases impactantes y directas si el video es corto. A medida que vaya siendo más duradero que 10 minutos, ve escalando el número de frases",
                 "hilo_twitter": ["Tweet 1 (Gancho)", "Tweet 2", "Tweet 3", "Tweet 4 (Cierre)"], 
-                "linkedin": "Texto profesional con negritas (**texto**) y emojis. Estructura: Gancho -> Problema -> Solución.",
-                "tiktok_script": "Guion estructurado. Usa [VISUAL] y [AUDIO]."
+                "linkedin": "Texto profesional con negritas (**texto**) y emojis. Estructura: Gancho -> Problema -> Solución. Alárgalo lo necesario según la extensión del video",
+                "tiktok_script": "Guion estructurado. Usa [VISUAL] y [AUDIO]. De igual manera, gradúa la extensión y el número de las escenas en función del video"
             }
             """
 
