@@ -224,10 +224,16 @@
                         tiktokText = String(tiktokRaw);
                     }
                 }
+               // Truco visual mejorado: Colorear VISUAL, AUDIO y detectar ESCENAS rebeldes
                 tiktokText = tiktokText
-                    .replace(/\[?VISUAL\]?:?/gi, '<span class="text-pink-400 font-bold block mt-4 mb-1">👁️ VISUAL:</span>')
-                    .replace(/\[?AUDIO\]?:?/gi, '<span class="text-green-400 font-bold block mb-1">🗣️ AUDIO:</span>')
-                    .replace(/\[ESCENA/gi, '<br><span class="text-yellow-500 font-bold border-b border-gray-600 w-full block mt-6">[ESCENA');
+                    // 1. Detectamos "Escena X" o "[Escena X]" y forzamos doble salto de línea antes
+                    .replace(/(?:\n|^)(?:\[?Escena\s+\d+\]?:?)/gi, function(match) {
+                        return `<br><br><span class="text-yellow-500 font-bold border-b border-gray-600 w-full block mt-6 mb-2 uppercase">${match.replace(/[\[\]]/g, '')}</span>`;
+                    })
+                    // 2. Coloreamos VISUAL
+                    .replace(/\[?VISUAL\]?:?/gi, '<span class="text-pink-400 font-bold block mt-4 mb-1"><i class="fas fa-eye mr-2"></i>VISUAL:</span>')
+                    // 3. Coloreamos AUDIO
+                    .replace(/\[?AUDIO\]?:?/gi, '<span class="text-green-400 font-bold block mt-2 mb-1"><i class="fas fa-microphone mr-2"></i>AUDIO:</span>');
                 
                 document.getElementById('tiktokContent').innerHTML = tiktokText;
                 document.getElementById('viralSection').classList.remove('hidden');
