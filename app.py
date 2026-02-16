@@ -1,4 +1,5 @@
 import os
+import random
 import json
 import yt_dlp
 import subprocess
@@ -20,7 +21,28 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # --- FUNCIONES AUXILIARES ---
+def get_groq_client_with_fallback(intento=0):
+    """
+    Intenta obtener un cliente con una Key que funcione.
+    Si falla, prueba la siguiente.
+    """
+    # Obtenemos la lista de keys de las variables de entorno
+    keys_string = os.environ.get("GROQ_KEYS_LIST") 
+    
+    # Si no hay lista, usamos la key única de siempre por compatibilidad
+    if not keys_string:
+        return Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
+    lista_keys = keys_string.split(',')
+    
+    # Selección inteligente: 
+    # Si es el primer intento, pilla una al azar para distribuir la carga.
+    # Si es un reintento (intento > 0), pilla la siguiente en la lista.
+    indice = (random.randint(0, len(lista_keys)-1) + intento) % len(lista_keys)
+    api_key_actual = lista_keys[indice].strip()
+    
+    print(f"--- 🔑 Usando API KEY nº {indice + 1} (Finaliza en ...{api_key_actual[-4:]}) ---")
+    return Groq(api_key=api_key_actual)
 def comprimir_audio(ruta_original):
     # Generamos un nombre único también para el comprimido
     nombre_seguro = f"{os.path.dirname(ruta_original)}/{uuid.uuid4()}_lite.mp3"
@@ -40,73 +62,101 @@ def comprimir_audio(ruta_original):
         return ruta_original 
 
 def procesar_con_groq(ruta_audio):
-    try:
-        with open(ruta_audio, "rb") as file:
-            transcription = client.audio.transcriptions.create(
-                file=(os.path.basename(ruta_audio), file.read()), 
-                model="whisper-large-v3",
-                response_format="text", 
-            )
-        return transcription
-    except Exception as e:
-        return f"Error en Groq: {str(e)}"
+    max_retries = 3 # Intentaremos con hasta 3 keys distintas
+    
+    for i in range(max_retries):
+        try:
+            client = get_groq_client_with_fallback(intento=i)
+            
+            with open(ruta_audio, "rb") as file:
+                transcription = client.audio.transcriptions.create(
+                    file=(os.path.basename(ruta_audio), file.read()),
+                    model="whisper-large-v3",
+                    response_format="text",
+                )
+            return transcription # ¡Éxito!
+            
+        except Exception as e:
+            error_msg = str(e)
+            # Solo reintentamos si es error de LÍMITE (429)
+            if "429" in error_msg or "Rate limit" in error_msg:
+                print(f"⚠️ Key agotada. Cambiando a la siguiente... (Intento {i+1}/{max_retries})")
+                continue # Pasa a la siguiente vuelta del bucle (siguiente key)
+            else:
+                # Si es otro error (archivo corrupto, etc), fallamos de verdad
+                return f"Error en Groq: {error_msg}"
+    
+    return "Error: Todas las API Keys están agotadas. Vuelve mañana."
 
 def generar_pack_viral(texto_transcrito):
-    # ... (Tu función generadora igual que antes) ...
-    # Solo asegúrate de que el modelo sea el nuevo:
+    """Genera contenido viral con Llama 3.3 asegurando que completa el JSON."""
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key: return {"error": "Falta API Key"}
+
     client = Groq(api_key=api_key)
-
+    
+    # CAMBIO 1: Prompt optimizado para que no se agote antes de acabar
     prompt = """
-    Eres un Editor Jefe de medios virales y experto en Copywriting.
-    Tu trabajo NO es resumir, es REEMPAQUETAR el contenido para maximizar el engagement (likes, retweets, shares).
+    Eres un Editor Jefe experto en viralidad.
+    Tu objetivo es REEMPAQUETAR la transcripción para redes sociales.
     
-    Analiza la transcripción y extrae las ideas más polémicas, sorprendentes o educativas. Ignora la paja, quédate con el oro.
+    REGLAS CRÍTICAS:
+    1. Responde SOLO con un JSON válido.
+    2. NO expliques nada antes ni después.
+    3. Asegúrate de cerrar todas las llaves y comillas.
     
-    Genera un JSON ESTRICTO con estas claves y siguiendo estas reglas DE ESTILO:
-
-    1. "resumen": 
-       - NO empieces con "El video trata de...".
-       - Empieza directo al grano. Usa un tono periodístico pero urgente. 
-       - Máximo 3 frases de alto impacto.
-
-    2. "hilo_twitter": 
-       - Array de 5 a 7 strings.
-       - TWEET 1 (GANCHO): Debe ser irresistible. Usa una afirmación contraintuitiva, una pregunta retórica o un dato impactante. NO uses hashtags aquí.
-       - TWEETS CUERPO: Desarrolla la idea. Usa frases cortas.
-       - TWEET FINAL: Una conclusión o llamada a la acción.
-
-    3. "linkedin": 
-       - Estructura de "Bro-etry" (frases cortas, mucho espacio en blanco).
-       - Empieza con una frase corta que rompa el patrón ("Hook").
-       - Desarrolla el problema y la solución.
-       - Usa negritas (usando asteriscos tipo **texto**) para resaltar conceptos clave.
-       - Termina con una pregunta para generar comentarios.
-
-    4. "tiktok_script": 
-       - NO devuelvas un párrafo. Devuelve un texto con saltos de línea claros.
-       - Formato: 
-         [ESCENA 1]
-         👁️ VISUAL: (Describe una acción específica, un meme, o un gráfico concreto, no "persona hablando")
-         🗣️ AUDIO: (Texto a decir, directo y con ritmo)
-         
-         [ESCENA 2]...
+    ESTRUCTURA JSON OBLIGATORIA:
+    {
+        "resumen": "3 frases impactantes y directas.",
+        "hilo_twitter": ["Tweet 1 (Gancho)", "Tweet 2", "Tweet 3", "Tweet 4 (Cierre)"], 
+        "linkedin": "Texto profesional con negritas (**texto**) y emojis. Estructura: Gancho -> Problema -> Solución.",
+        "tiktok_script": "Guion estructurado. Usa [VISUAL] para la imagen y [AUDIO] para la voz."
+    }
     """
+    # Nota: He bajado el hilo a 4 tweets para asegurar que queda espacio para LinkedIn y TikTok.
+
     try:
         completion = client.chat.completions.create(
             messages=[
                 {"role": "system", "content": prompt},
-                {"role": "user", "content": f"Transcripción:\n{texto_transcrito[:25000]}"}
+                # Recortamos un poco más la entrada para dejar más espacio a la salida
+                {"role": "user", "content": f"Transcripción:\n{texto_transcrito[:22000]}"}
             ],
-            model="llama-3.3-70b-versatile", # MODELO ACTUALIZADO
+            model="llama-3.3-70b-versatile", 
             temperature=0.5,
+            max_tokens=2048, # Forzamos espacio suficiente para la respuesta
             response_format={"type": "json_object"}
         )
-        return json.loads(completion.choices[0].message.content)
+        
+        contenido_bruto = completion.choices[0].message.content
+        print(f"--- RESPUESTA JSON RAW ---\n{contenido_bruto[:100]}... (y el final) ...{contenido_bruto[-100:]}\n--------------------------")
+        
+        data = json.loads(contenido_bruto)
+        
+        # CAMBIO 2: Normalización de Claves (El Cazador)
+        # A veces la IA llama a "linkedin" como "post_linkedin" o "linkedin_text". Esto lo arregla.
+        pack_seguro = {
+            "resumen": data.get("resumen") or data.get("summary") or "Resumen no generado.",
+            
+            "hilo_twitter": data.get("hilo_twitter") or data.get("twitter_thread") or [],
+            
+            # Buscamos variantes para LinkedIn
+            "linkedin": data.get("linkedin") or data.get("linkedin_post") or data.get("post_linkedin") or "Texto de LinkedIn no generado.",
+            
+            # Buscamos variantes para TikTok
+            "tiktok_script": data.get("tiktok_script") or data.get("tiktok") or data.get("reels") or "Guion no generado."
+        }
+        
+        return pack_seguro
+        
     except Exception as e:
-        return {"resumen": "Error: " + str(e), "hilo_twitter": [], "linkedin": "", "tiktok_script": ""}
-
+        print(f"❌ ERROR JSON PACK VIRAL: {e}")
+        return {
+            "resumen": "Error al generar contenido viral.",
+            "hilo_twitter": ["Error"],
+            "linkedin": f"Hubo un error técnico generando este texto: {str(e)}",
+            "tiktok_script": "Inténtalo de nuevo."
+        }
 # --- RUTAS ---
 
 @app.route('/')
