@@ -165,32 +165,40 @@
             // 1. Mostrar Transcripción (Siempre viene)
             document.getElementById('transcripcion').innerText = data.transcripcion || data.transcripcion_completa || "Sin texto.";
 
-            // 2. Mostrar Pack Viral (Si viene del endpoint de YouTube)
             if (data.pack_viral) {
                 const pack = data.pack_viral;
                 
                 // Resumen
                 document.getElementById('resumenContent').innerText = pack.resumen || "No disponible";
-                
-                // Twitter (Es un array, lo convertimos a HTML bonito)
+            
+                // Twitter (Mejorado con números)
                 const tweets = pack.hilo_twitter || [];
                 const tweetsHtml = tweets.map((t, i) => 
-                    `<div class="bg-gray-700/50 p-3 rounded mb-2 border-l-4 border-blue-400">
-                        <span class="text-xs text-blue-400 font-bold block mb-1">Tweet ${i+1}</span>
-                        ${t}
+                    `<div class="bg-gray-700/50 p-4 rounded-lg mb-3 border-l-4 border-blue-400 relative hover:bg-gray-700 transition">
+                        <span class="absolute top-2 right-2 text-xs text-blue-400 font-bold opacity-50">${i+1}/${tweets.length}</span>
+                        <p class="text-gray-200 text-base">${t}</p>
                      </div>`
                 ).join('');
                 document.getElementById('twitterContent').innerHTML = tweetsHtml;
-
-                // LinkedIn
-                document.getElementById('linkedinContent').innerText = pack.linkedin || "No disponible";
-
-                // TikTok
-                document.getElementById('tiktokContent').innerText = pack.tiktok_script || "No disponible";
-
-                // Mostrar sección viral
+            
+                // LinkedIn (Procesamos negritas simples de Markdown **texto**)
+                let linkedinText = pack.linkedin || "No disponible";
+                // Convertir **texto** en <b>texto</b> para que se vea negrita real
+                linkedinText = linkedinText.replace(/\*\*(.*?)\*\*/g, '<b class="text-white">$1</b>');
+                document.getElementById('linkedinContent').innerHTML = linkedinText;
+            
+                // TikTok (Coloreamos las etiquetas VISUAL y AUDIO para que sea legible)
+                let tiktokText = pack.tiktok_script || "No disponible";
+                // Truco visual: Colorear VISUAL y AUDIO
+                tiktokText = tiktokText
+                    .replace(/\[?VISUAL\]?:?/gi, '<span class="text-pink-400 font-bold block mt-4 mb-1">👁️ VISUAL:</span>')
+                    .replace(/\[?AUDIO\]?:?/gi, '<span class="text-green-400 font-bold block mb-1">🗣️ AUDIO:</span>')
+                    .replace(/\[ESCENA/gi, '<br><span class="text-yellow-500 font-bold border-b border-gray-600 w-full block mt-6">[ESCENA');
+                
+                document.getElementById('tiktokContent').innerHTML = tiktokText;
+            
                 document.getElementById('viralSection').classList.remove('hidden');
-            } else {
+            }else {
                 // Si es subida de archivo (solo transcripción), ocultamos lo viral
                 document.getElementById('viralSection').classList.add('hidden');
             }
