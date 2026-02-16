@@ -4,70 +4,66 @@ import yt_dlp
 import subprocess
 from flask import Flask, render_template, request, jsonify
 from groq import Groq
-import logging
+import uuid  # <--- IMPORTANTE: Para generar nombres únicos
 import shutil
 
 app = Flask(__name__)
 
-# Configuración Global de Groq
-# Usamos esta instancia global para no crear una nueva en cada petición
+# Límite de tamaño de archivo (ej: 500MB) para evitar ataques de denegación de servicio
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024 
+
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+
+ALLOWED_EXTENSIONS = {'mp3', 'wav', 'm4a', 'mp4', 'mpeg', 'ogg', 'webm'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # --- FUNCIONES AUXILIARES ---
 
 def comprimir_audio(ruta_original):
-    """
-    Usa ffmpeg para bajar el peso del archivo drásticamente.
-    Convierte a mono, baja el muestreo a 16kHz y el bitrate a 32kbps.
-    Esto es VITAL para no superar el límite de 25MB de Groq.
-    """
-    # Creamos un nombre para el archivo ligero
-    ruta_comprimido = ruta_original.rsplit('.', 1)[0] + "_lite.mp3"
+    # Generamos un nombre único también para el comprimido
+    nombre_seguro = f"{os.path.dirname(ruta_original)}/{uuid.uuid4()}_lite.mp3"
     
-    print(f"--- COMPRIMIENDO AUDIO: {ruta_original} -> {ruta_comprimido} ---")
+    print(f"--- COMPRIMIENDO: {ruta_original} -> {nombre_seguro} ---")
     
     try:
         comando = [
             "ffmpeg", "-y", "-i", ruta_original,
             "-vn", "-ar", "16000", "-ac", "1", "-b:a", "32k",
-            ruta_comprimido
+            nombre_seguro
         ]
-        # Ejecutamos el comando de sistema
         subprocess.run(comando, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return ruta_comprimido
+        return nombre_seguro
     except Exception as e:
-        print(f"Error al comprimir: {e}")
-        # Si falla la compresión, devolvemos el original y rezamos para que pese menos de 25MB
+        print(f"Error compresión: {e}")
         return ruta_original 
 
 def procesar_con_groq(ruta_audio):
-    """Envía el audio a Whisper de Groq para transcribir."""
     try:
         with open(ruta_audio, "rb") as file:
             transcription = client.audio.transcriptions.create(
-                file=(os.path.basename(ruta_audio), file.read()), # Enviamos nombre y bytes
+                file=(os.path.basename(ruta_audio), file.read()), 
                 model="whisper-large-v3",
-                response_format="text", # Pedimos texto plano
+                response_format="text", 
             )
         return transcription
     except Exception as e:
         return f"Error en Groq: {str(e)}"
 
-
 def generar_pack_viral(texto_transcrito):
+    # ... (Tu función generadora igual que antes) ...
+    # Solo asegúrate de que el modelo sea el nuevo:
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key: return {"error": "Falta API Key"}
-
     client = Groq(api_key=api_key)
-    
-    # 1. PROMPT EXACTO
+
     prompt = """
     Actúa como un estratega de contenido viral.
     Tu objetivo es transformar la siguiente transcripción en piezas de contenido listas para publicar.
     
-    IMPORTANTE: Responde ÚNICAMENTE con un JSON válido. Sin texto introductorio.
+    IMPORTANTE: Responde ÚNICAMENTE con un JSON válido.
     Usa EXACTAMENTE estas claves:
-    
     {
         "resumen": "Resumen potente en 3 frases",
         "hilo_twitter": ["Tweet 1", "Tweet 2", "Tweet 3", "Tweet 4", "Tweet 5"],
@@ -75,34 +71,21 @@ def generar_pack_viral(texto_transcrito):
         "tiktok_script": "Guion con indicaciones [VISUAL] y [AUDIO]"
     }
     """
-
     try:
         completion = client.chat.completions.create(
             messages=[
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": f"Transcripción:\n{texto_transcrito[:25000]}"}
             ],
-            model="llama-3.3-70b-versatile", 
-            temperature=0.5, # Bajamos temperatura para que sea más obediente con el JSON
+            model="llama-3.3-70b-versatile", # MODELO ACTUALIZADO
+            temperature=0.5,
             response_format={"type": "json_object"}
         )
-        
-        contenido_bruto = completion.choices[0].message.content
-        print(f"--- RESPUESTA RAW GROQ (DEBUG) ---\n{contenido_bruto[:200]}...\n--------------------------------")
-        
-        return json.loads(contenido_bruto)
-        
+        return json.loads(completion.choices[0].message.content)
     except Exception as e:
-        print(f"❌ ERROR JSON PACK VIRAL: {e}")
-        # Devolvemos un objeto vacío con el error para que el frontend no muestre "undefined"
-        return {
-            "resumen": "Error generando resumen: " + str(e),
-            "hilo_twitter": ["Error"],
-            "linkedin": "Error",
-            "tiktok_script": "Error"
-        }
+        return {"resumen": "Error: " + str(e), "hilo_twitter": [], "linkedin": "", "tiktok_script": ""}
 
-# --- RUTAS DE LA APLICACIÓN ---
+# --- RUTAS ---
 
 @app.route('/')
 def index():
@@ -114,37 +97,56 @@ def subir_archivo():
         return jsonify({"error": "No hay archivo"}), 400
     
     archivo = request.files['file']
-    ruta_temp = f"/tmp/{archivo.filename}"
+    
+    if archivo.filename == '':
+        return jsonify({"error": "Nombre de archivo vacío"}), 400
+        
+    if not allowed_file(archivo.filename):
+        return jsonify({"error": "Tipo de archivo no permitido (solo audio/video)"}), 400
+
+    # SEGURIDAD 1: Generamos nombre aleatorio único (UUID)
+    # Da igual si el usuario subió "audio.mp3", nosotros lo guardamos como "550e8400-e29b....mp3"
+    ext = archivo.filename.rsplit('.', 1)[1].lower()
+    nombre_unico = f"{uuid.uuid4()}.{ext}"
+    ruta_temp = os.path.join("/tmp", nombre_unico)
+    
     archivo.save(ruta_temp)
     
-    # 1. Comprimir
-    ruta_para_groq = comprimir_audio(ruta_temp)
-    
-    # 2. Transcribir
-    texto = procesar_con_groq(ruta_para_groq)
-    
-    # 3. Limpieza
-    if os.path.exists(ruta_temp): os.remove(ruta_temp)
-    if os.path.exists(ruta_para_groq) and ruta_para_groq != ruta_temp:
-        os.remove(ruta_para_groq)
-    
-    return jsonify({"transcripcion": texto})
-# --- RUTA TRANSFORMAR ---
+    try:
+        ruta_para_groq = comprimir_audio(ruta_temp)
+        texto = procesar_con_groq(ruta_para_groq)
+        
+        # Como es subida de archivo, de momento solo devolvemos transcripción
+        # (Podrías llamar a generar_pack_viral aquí también si quisieras)
+        
+        return jsonify({"transcripcion": texto})
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+        
+    finally:
+        # LIMPIEZA GARANTIZADA (bloque finally se ejecuta siempre, haya error o no)
+        if os.path.exists(ruta_temp): os.remove(ruta_temp)
+        if 'ruta_para_groq' in locals() and os.path.exists(ruta_para_groq) and ruta_para_groq != ruta_temp:
+            os.remove(ruta_para_groq)
+
 @app.route('/transformar', methods=['POST'])
 def transformar():
     url = request.form.get('url')
     
-    # Rutas
-    nombre_original = f'/tmp/audio_{hash(url)}.m4a'
+    # SEGURIDAD 2: Nombre único también para YouTube
+    # Usar hash(url) podría dar colisiones si dos usuarios piden el mismo video a la vez y uno borra el archivo del otro.
+    # UUID es más seguro para concurrencia.
+    nombre_original = f'/tmp/{uuid.uuid4()}.m4a'
     
-    # Cookies
     cookies_content = os.getenv("YT_COOKIES")
     cookie_path = "/tmp/cookies.txt"
     if cookies_content:
         with open(cookie_path, "w") as f:
             f.write(cookies_content)
     
-    # Configuración yt-dlp
+    # ... (Configuración yt-dlp igual que antes) ...
+    cache_dir = '/tmp/yt-dlp-cache'
     ydl_opts = {
         'verbose': True,
         'format': 'bestaudio/best',
@@ -152,6 +154,9 @@ def transformar():
         'nocheckcertificate': True,
         'cookiefile': cookie_path if cookies_content else None,
         'remote_components': ['ejs:github'], 
+        'socket_timeout': 30,
+        'retries': 20,
+        'fragment_retries': 20,
         'extractor_args': {
             'youtube': {
                 'player_client': ['tv'], 
@@ -162,34 +167,20 @@ def transformar():
     }
 
     try:
-        print(f"--- 1. DESCARGANDO: {url} ---")
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
         
         if not os.path.exists(nombre_original):
              return jsonify({"error": "Fallo en descarga"}), 500
 
-        # --- AQUI ESTABA EL FALLO ANTES ---
-        # Hay que comprimir SIEMPRE antes de enviar a Groq
-        print("--- 2. COMPRIMIENDO (Vital para Groq) ---")
         ruta_comprimida = comprimir_audio(nombre_original)
-
-        print("--- 3. TRANSCRIBIENDO ---")
-        # Usamos la ruta comprimida, no la original
         texto_crudo = procesar_con_groq(ruta_comprimida)
         
-        # Verificamos que no sea un error de transcripción
         if isinstance(texto_crudo, str) and texto_crudo.startswith("Error"):
              return jsonify({"transcripcion": texto_crudo, "pack_viral": None})
 
-        print("--- 4. GENERANDO PACK VIRAL ---")
         pack_social = generar_pack_viral(texto_crudo)
         
-        # Limpieza
-        if os.path.exists(nombre_original): os.remove(nombre_original)
-        if os.path.exists(ruta_comprimida) and ruta_comprimida != nombre_original:
-            os.remove(ruta_comprimida)
-            
         return jsonify({
             "status": "success",
             "transcripcion": texto_crudo,
@@ -197,8 +188,13 @@ def transformar():
         })
 
     except Exception as e:
-        print(f"❌ ERROR CRÍTICO: {e}")
         return jsonify({"error": str(e)}), 500
+        
+    finally:
+        # LIMPIEZA SIEMPRE
+        if os.path.exists(nombre_original): os.remove(nombre_original)
+        if 'ruta_comprimida' in locals() and os.path.exists(ruta_comprimida) and ruta_comprimida != nombre_original:
+            os.remove(ruta_comprimida)
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 7860))
