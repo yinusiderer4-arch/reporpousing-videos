@@ -165,41 +165,66 @@
             // 1. Mostrar Transcripción (Siempre viene)
             document.getElementById('transcripcion').innerText = data.transcripcion || data.transcripcion_completa || "Sin texto.";
 
+            // Logica visual para el Pack Viral
             if (data.pack_viral) {
                 const pack = data.pack_viral;
                 
-                // Resumen
+                // --- RESUMEN ---
                 document.getElementById('resumenContent').innerText = pack.resumen || "No disponible";
-            
-                // Twitter (Mejorado con números)
-                const tweets = pack.hilo_twitter || [];
+                
+                // --- TWITTER ---
+                // Twitter ya es un array, así que iteramos con .map
+                const tweets = Array.isArray(pack.hilo_twitter) ? pack.hilo_twitter : [];
                 const tweetsHtml = tweets.map((t, i) => 
                     `<div class="bg-gray-700/50 p-4 rounded-lg mb-3 border-l-4 border-blue-400 relative hover:bg-gray-700 transition">
                         <span class="absolute top-2 right-2 text-xs text-blue-400 font-bold opacity-50">${i+1}/${tweets.length}</span>
                         <p class="text-gray-200 text-base">${t}</p>
                      </div>`
                 ).join('');
-                document.getElementById('twitterContent').innerHTML = tweetsHtml;
-            
-                // LinkedIn (Procesamos negritas simples de Markdown **texto**)
-                let linkedinText = pack.linkedin || "No disponible";
-                // Convertir **texto** en <b>texto</b> para que se vea negrita real
+                document.getElementById('twitterContent').innerHTML = tweetsHtml || "<p class='text-gray-400'>No se generaron tweets.</p>";
+                
+                // --- LINKEDIN (BLINDAJE ANTI-ERROR) ---
+                let linkedinRaw = pack.linkedin;
+                let linkedinText = "No disponible";
+
+                // Si viene algo, nos aseguramos de que sea String
+                if (linkedinRaw) {
+                    if (Array.isArray(linkedinRaw)) {
+                        linkedinText = linkedinRaw.join('\n\n'); // Si es lista, la unimos
+                    } else {
+                        linkedinText = String(linkedinRaw); // Si es otra cosa, forzamos texto
+                    }
+                }
+                
+                // Ahora es seguro usar .replace()
                 linkedinText = linkedinText.replace(/\*\*(.*?)\*\*/g, '<b class="text-white">$1</b>');
                 document.getElementById('linkedinContent').innerHTML = linkedinText;
-            
-                // TikTok (Coloreamos las etiquetas VISUAL y AUDIO para que sea legible)
-                let tiktokText = pack.tiktok_script || "No disponible";
-                // Truco visual: Colorear VISUAL y AUDIO
+                
+                // --- TIKTOK (BLINDAJE ANTI-ERROR) ---
+                let tiktokRaw = pack.tiktok_script;
+                let tiktokText = "No disponible";
+
+                if (tiktokRaw) {
+                    if (Array.isArray(tiktokRaw)) {
+                        tiktokText = tiktokRaw.join('\n\n');
+                    } else {
+                        tiktokText = String(tiktokRaw);
+                    }
+                }
+                
+                // Coloreado visual
                 tiktokText = tiktokText
                     .replace(/\[?VISUAL\]?:?/gi, '<span class="text-pink-400 font-bold block mt-4 mb-1">👁️ VISUAL:</span>')
                     .replace(/\[?AUDIO\]?:?/gi, '<span class="text-green-400 font-bold block mb-1">🗣️ AUDIO:</span>')
                     .replace(/\[ESCENA/gi, '<br><span class="text-yellow-500 font-bold border-b border-gray-600 w-full block mt-6">[ESCENA');
                 
                 document.getElementById('tiktokContent').innerHTML = tiktokText;
-            
+                
+                // Mostrar sección
                 document.getElementById('viralSection').classList.remove('hidden');
-            }else {
-                // Si es subida de archivo (solo transcripción), ocultamos lo viral
+
+            } else {
+                // Si es subida de archivo simple sin viral, ocultamos
                 document.getElementById('viralSection').classList.add('hidden');
             }
 
