@@ -135,10 +135,14 @@ def transformar():
     if cookies_content:
         with open(cookie_path, "w") as f:
             f.write(cookies_content)
-
+    # Creamos la variable AQUÍ para poder usarla después
+    nombre_original = f'/tmp/audio_{hash(url)}.m4a'
     ydl_opts = {
         'verbose': True,
         'format': 'bestaudio/best',
+        # AQUÍ USAMOS LA VARIABLE: Así yt-dlp guarda el archivo con ese nombre
+        'outtmpl': nombre_original,
+        
         'outtmpl': f'/tmp/audio_{hash(url)}.m4a',
         'nocheckcertificate': True,
         'cookiefile': cookie_path if cookies_content else None,
@@ -172,6 +176,8 @@ def transformar():
     print("--------------------------------------\n")
     try:
         # 4. DESCARGA
+        print(f"--- INICIANDO DESCARGA EN: {nombre_original} ---")
+        
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
         
