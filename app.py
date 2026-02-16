@@ -68,7 +68,7 @@ def generar_pack_viral(texto_transcrito):
         "resumen": "Resumen potente sobre las ideas clave en 3 frases si el video es corto, o 5 frases si es más largo",
         "hilo_twitter": ["Tweet 1", "Tweet 2", "Tweet 3", "Tweet 4", "Tweet 5"],
         "linkedin": "Texto para LinkedIn profesional con emojis",
-        "tiktok_script": "Guion con indicaciones [VISUAL] y [AUDIO] para grabar un reel o copiar y pegar como un prompt para IAs de creación de videos"
+        "tiktok_script": "Guion con indicaciones [VISUAL] y [AUDIO] para grabar un reel o copiar y pegar como un prompt para IAs de creación de videos. Que esté trabajado y dé mucho juego para crear"
     }
     """
     try:
