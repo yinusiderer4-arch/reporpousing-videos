@@ -13,7 +13,7 @@ app = Flask(__name__)
 # Límite de tamaño de archivo (ej: 500MB) para evitar ataques de denegación de servicio
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024 
 
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+
 
 ALLOWED_EXTENSIONS = {'mp3', 'wav', 'm4a', 'mp4', 'mpeg', 'ogg', 'webm'}
 
@@ -89,74 +89,88 @@ def procesar_con_groq(ruta_audio):
     return "Error: Todas las API Keys están agotadas. Vuelve mañana."
 
 def generar_pack_viral(texto_transcrito):
-    """Genera contenido viral con Llama 3.3 asegurando que completa el JSON."""
-    api_key = os.environ.get("GROQ_API_KEY")
-    if not api_key: return {"error": "Falta API Key"}
-
-    client = Groq(api_key=api_key)
-    
-    # CAMBIO 1: Prompt optimizado para que no se agote antes de acabar
-    prompt = """
-    Eres un Editor Jefe experto en viralidad.
-    Tu objetivo es REEMPAQUETAR la transcripción para redes sociales.
-    
-    REGLAS CRÍTICAS:
-    1. Responde SOLO con un JSON válido.
-    2. NO expliques nada antes ni después.
-    3. Asegúrate de cerrar todas las llaves y comillas.
-    
-    ESTRUCTURA JSON OBLIGATORIA:
-    {
-        "resumen": "3 frases impactantes y directas.",
-        "hilo_twitter": ["Tweet 1 (Gancho)", "Tweet 2", "Tweet 3", "Tweet 4 (Cierre)"], 
-        "linkedin": "Texto profesional con negritas (**texto**) y emojis. Estructura: Gancho -> Problema -> Solución.",
-        "tiktok_script": "Guion estructurado. Usa [VISUAL] para la imagen y [AUDIO] para la voz."
-    }
     """
-    # Nota: He bajado el hilo a 4 tweets para asegurar que queda espacio para LinkedIn y TikTok.
+    Genera contenido viral usando Rotación de Keys + Protección de JSON.
+    """
+    
+    # Intentaremos hasta 3 veces (cambiando de key si sale error 429)
+    max_retries = 3 
+    
+    for i in range(max_retries):
+        try:
+            # 1. OBTENER CLIENTE ROTATIVO
+            # Si falla la key 1, en la siguiente vuelta del bucle usará la key 2
+            client = get_groq_client_with_fallback(intento=i)
+            
+            # 2. PROMPT OPTIMIZADO (Ahorro de energía)
+            prompt = """
+            Eres un Editor Jefe experto en viralidad.
+            Tu objetivo es REEMPAQUETAR la transcripción para redes sociales.
+            
+            REGLAS CRÍTICAS:
+            1. Responde SOLO con un JSON válido.
+            2. NO expliques nada antes ni después.
+            
+            ESTRUCTURA JSON OBLIGATORIA:
+            {
+                "resumen": "3 frases impactantes y directas.",
+                "hilo_twitter": ["Tweet 1 (Gancho)", "Tweet 2", "Tweet 3", "Tweet 4 (Cierre)"], 
+                "linkedin": "Texto profesional con negritas (**texto**) y emojis. Estructura: Gancho -> Problema -> Solución.",
+                "tiktok_script": "Guion estructurado. Usa [VISUAL] y [AUDIO]."
+            }
+            """
 
-    try:
-        completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": prompt},
-                # Recortamos un poco más la entrada para dejar más espacio a la salida
-                {"role": "user", "content": f"Transcripción:\n{texto_transcrito[:22000]}"}
-            ],
-            model="llama-3.3-70b-versatile", 
-            temperature=0.5,
-            max_tokens=2048, # Forzamos espacio suficiente para la respuesta
-            response_format={"type": "json_object"}
-        )
-        
-        contenido_bruto = completion.choices[0].message.content
-        print(f"--- RESPUESTA JSON RAW ---\n{contenido_bruto[:100]}... (y el final) ...{contenido_bruto[-100:]}\n--------------------------")
-        
-        data = json.loads(contenido_bruto)
-        
-        # CAMBIO 2: Normalización de Claves (El Cazador)
-        # A veces la IA llama a "linkedin" como "post_linkedin" o "linkedin_text". Esto lo arregla.
-        pack_seguro = {
-            "resumen": data.get("resumen") or data.get("summary") or "Resumen no generado.",
+            # 3. LLAMADA A LA API (Con límite de tokens para reservar espacio)
+            completion = client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": f"Transcripción:\n{texto_transcrito[:22000]}"}
+                ],
+                model="llama-3.3-70b-versatile", 
+                temperature=0.5,
+                max_tokens=2048, # Reservamos espacio para que no se corte al final
+                response_format={"type": "json_object"}
+            )
             
-            "hilo_twitter": data.get("hilo_twitter") or data.get("twitter_thread") or [],
+            contenido_bruto = completion.choices[0].message.content
+            print(f"--- RESPUESTA JSON RAW (Intento {i+1}) ---\n{contenido_bruto[:50]}...\n--------------------------")
             
-            # Buscamos variantes para LinkedIn
-            "linkedin": data.get("linkedin") or data.get("linkedin_post") or data.get("post_linkedin") or "Texto de LinkedIn no generado.",
+            data = json.loads(contenido_bruto)
             
-            # Buscamos variantes para TikTok
-            "tiktok_script": data.get("tiktok_script") or data.get("tiktok") or data.get("reels") or "Guion no generado."
-        }
-        
-        return pack_seguro
-        
-    except Exception as e:
-        print(f"❌ ERROR JSON PACK VIRAL: {e}")
-        return {
-            "resumen": "Error al generar contenido viral.",
-            "hilo_twitter": ["Error"],
-            "linkedin": f"Hubo un error técnico generando este texto: {str(e)}",
-            "tiktok_script": "Inténtalo de nuevo."
-        }
+            # 4. NORMALIZACIÓN DE CLAVES (El Cazador de errores)
+            pack_seguro = {
+                "resumen": data.get("resumen") or data.get("summary") or "Resumen no generado.",
+                "hilo_twitter": data.get("hilo_twitter") or data.get("twitter_thread") or [],
+                "linkedin": data.get("linkedin") or data.get("linkedin_post") or data.get("post_linkedin") or "Texto no generado.",
+                "tiktok_script": data.get("tiktok_script") or data.get("tiktok") or data.get("reels") or "Guion no generado."
+            }
+            
+            return pack_seguro # ¡Éxito! Salimos de la función
+            
+        except Exception as e:
+            error_msg = str(e)
+            print(f"⚠️ Error en intento {i+1}: {error_msg}")
+            
+            # Si es error de LÍMITE (429), continuamos el bucle para probar la siguiente key
+            if "429" in error_msg or "Rate limit" in error_msg:
+                print("🔄 Cambiando de API Key...")
+                continue 
+            else:
+                # Si es otro error (ej: JSON mal formado), devolvemos el error amigable
+                return {
+                    "resumen": "Error técnico generando contenido.",
+                    "hilo_twitter": ["Error"],
+                    "linkedin": f"Error: {str(e)}",
+                    "tiktok_script": "Error"
+                }
+
+    # Si se agotan los intentos del bucle
+    return {
+        "resumen": "Servicio saturado (Todas las keys agotadas).",
+        "hilo_twitter": [],
+        "linkedin": "Vuelve mañana.",
+        "tiktok_script": ""
+    }
 # --- RUTAS ---
 
 @app.route('/')
@@ -212,6 +226,8 @@ def subir_archivo():
         if os.path.exists(ruta_temp): os.remove(ruta_temp)
         if 'ruta_para_groq' in locals() and os.path.exists(ruta_para_groq) and ruta_para_groq != ruta_temp:
             os.remove(ruta_para_groq)
+
+
 @app.route('/transformar', methods=['POST'])
 def transformar():
     url = request.form.get('url')
