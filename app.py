@@ -130,11 +130,11 @@ def transformar():
 
     # --- CONFIGURACIÓN DE DESCARGA ---
     
-    #cookies_content = os.getenv("YT_COOKIES")
-    #cookie_path = "/tmp/cookies.txt"
-    #if cookies_content:
-        #with open(cookie_path, "w") as f:
-            #f.write(cookies_content)
+    cookies_content = os.getenv("YT_COOKIES")
+    cookie_path = "/tmp/cookies.txt"
+    if cookies_content:
+        with open(cookie_path, "w") as f:
+            f.write(cookies_content)
     # Creamos la variable AQUÍ para poder usarla después
     nombre_original = f'/tmp/audio_{hash(url)}.m4a'
     ydl_opts = {
@@ -145,7 +145,7 @@ def transformar():
         
         'outtmpl': f'/tmp/audio_{hash(url)}.m4a',
         'nocheckcertificate': True,
-        'cookiefile': None,
+        'cookiefile': cookie_path if cookies_content else None,
         'cachedir': cache_dir,
         # --- BLINDAJE CONTRA CORTES ---
         'socket_timeout': 30,      # Esperar hasta 30s si YouTube se pone lento
