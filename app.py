@@ -82,7 +82,7 @@ def generar_pack_viral(texto_transcrito):
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": f"Transcripción:\n{texto_transcrito[:25000]}"}
             ],
-            model="llama3-70b-8192", 
+            model="llama-3.3-70b-versatile", 
             temperature=0.5, # Bajamos temperatura para que sea más obediente con el JSON
             response_format={"type": "json_object"}
         )
