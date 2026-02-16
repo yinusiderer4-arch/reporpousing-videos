@@ -142,23 +142,34 @@ def transformar():
         'outtmpl': f'/tmp/audio_{hash(url)}.m4a',
         'nocheckcertificate': True,
         'cookiefile': cookie_path if cookies_content else None,
-        'cachedir': cache_dir, # Forzamos el uso de la carpeta temporal limpia
+        'cachedir': cache_dir,
         
-        # SINTAXIS CORREGIDA PARA REMOTE COMPONENTS
-        # Debe ir dentro de 'params', no suelto
-        'params': {
-            'remote_components': 'ejs:github', 
-        },
+        # --- LA CORRECCIÓN MAESTRA ---
+        # 1. Va en la RAÍZ (no dentro de 'params').
+        # 2. Es una LISTA ['...'] (no un string).
+        # Esto le dice a yt-dlp: "Descarga el módulo EJS desde GitHub".
+        'remote_components': ['ejs:github'], 
         
         'extractor_args': {
             'youtube': {
+                # Solo TV (el único que funciona con cookies hoy en día)
                 'player_client': ['tv'],
                 'player_skip': ['web', 'web_music', 'android', 'ios']
             }
         },
         'js_runtimes': {'node': {}}
     }
-
+    # --- NUEVO DEBUG: VERIFICACIÓN DE CONFIGURACIÓN ---
+    print("\n--- VERIFICACIÓN DE CONFIGURACIÓN ---")
+    # Imprimimos si la clave existe y qué valor tiene
+    rc_val = ydl_opts.get('remote_components', 'NO CONFIGURADO ❌')
+    print(f"[CONFIG] Remote Components: {rc_val}")
+    
+    if rc_val == ['ejs:github']:
+        print("[CONFIG] ✅ La configuración parece correcta (Lista en raíz)")
+    else:
+        print("[CONFIG] ⚠️ CUIDADO: La configuración no coincide con lo esperado")
+    print("--------------------------------------\n")
     try:
         # 4. DESCARGA
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
