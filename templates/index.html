@@ -9,103 +9,218 @@
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen font-sans">
 
-    <div class="container mx-auto max-w-4xl px-4 py-12">
+    <div class="container mx-auto max-w-5xl px-4 py-12">
         <div class="text-center mb-12">
-            <h1 class="text-4xl md:text-5xl font-extrabold text-white mb-4">
-                <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">
-                    AI Content Transcriber
+            <h1 class="text-4xl md:text-6xl font-extrabold text-white mb-4">
+                <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500">
+                    AI Content Factory
                 </span>
             </h1>
-            <p class="text-gray-400 text-lg">Convierte videos o audios en texto profesional en segundos.</p>
+            <p class="text-gray-400 text-lg">De Video a Viral: Transcripción, Twitter, LinkedIn y TikTok en 1 clic.</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+            <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-xl hover:border-purple-500 transition">
                 <div class="flex items-center mb-4">
                     <i class="fab fa-youtube text-red-500 text-2xl mr-3"></i>
-                    <h2 class="text-xl font-semibold">Desde YouTube</h2>
+                    <h2 class="text-xl font-semibold">Pegar Enlace YouTube</h2>
                 </div>
-                <input type="text" id="videoUrl" placeholder="Pega el enlace aquí..." 
-                       class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none mb-4">
+                <input type="text" id="videoUrl" placeholder="https://youtube.com/watch?v=..." 
+                       class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none mb-4 text-white">
                 <button onclick="procesarYoutube()" id="btnYoutube"
-                        class="w-full bg-indigo-600 hover:bg-indigo-700 py-3 rounded-lg font-bold transition duration-200">
-                    Procesar Enlace
+                        class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 py-3 rounded-lg font-bold transition duration-200 shadow-lg">
+                    <i class="fas fa-magic mr-2"></i> Generar Pack Viral
                 </button>
             </div>
 
-            <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg">
+            <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-xl hover:border-blue-500 transition">
                 <div class="flex items-center mb-4">
-                    <i class="fas fa-file-audio text-blue-400 text-2xl mr-3"></i>
-                    <h2 class="text-xl font-semibold">Subir Archivo</h2>
+                    <i class="fas fa-cloud-upload-alt text-blue-400 text-2xl mr-3"></i>
+                    <h2 class="text-xl font-semibold">Subir Archivo (Audio/Video)</h2>
                 </div>
-                <div id="dropZone" class="border-2 border-dashed border-gray-600 rounded-lg p-4 text-center hover:border-indigo-500 transition cursor-pointer mb-4">
+                <div id="dropZone" class="border-2 border-dashed border-gray-600 rounded-lg p-4 text-center hover:border-blue-500 transition cursor-pointer mb-4 bg-gray-900/50">
                     <input type="file" id="fileInput" class="hidden" accept="audio/*,video/*">
-                    <p id="fileName" class="text-gray-400 text-sm italic">Haz clic o arrastra un audio (.mp3, .m4a)</p>
+                    <i class="fas fa-file-audio text-3xl text-gray-500 mb-2"></i>
+                    <p id="fileName" class="text-gray-400 text-sm">Arrastra o haz clic aquí (.mp3, .m4a)</p>
                 </div>
                 <button onclick="procesarArchivo()" id="btnFile"
-                        class="w-full bg-purple-600 hover:bg-purple-700 py-3 rounded-lg font-bold transition duration-200">
-                    Subir y Transcribir
+                        class="w-full bg-gray-700 hover:bg-gray-600 py-3 rounded-lg font-bold transition duration-200">
+                    Solo Transcribir
                 </button>
             </div>
         </div>
 
         <div id="loader" class="hidden mt-12 text-center">
-            <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-indigo-500"></div>
-            <p class="mt-4 text-indigo-400 animate-pulse font-medium">La IA de Groq está trabajando... No cierres esta pestaña.</p>
+            <div class="relative inline-flex">
+                <div class="w-16 h-16 bg-purple-500 rounded-full animate-ping opacity-75"></div>
+                <div class="absolute top-0 left-0 w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center">
+                    <i class="fas fa-robot text-white text-2xl animate-bounce"></i>
+                </div>
+            </div>
+            <p class="mt-6 text-xl text-gray-300 font-medium">Analizando contenido y redactando posts...</p>
+            <p class="text-sm text-gray-500 mt-2">Esto puede tardar unos 30-60 segundos.</p>
         </div>
 
-        <div id="resultArea" class="hidden mt-12 bg-gray-800 rounded-2xl border border-gray-700 p-8 shadow-2xl">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-2xl font-bold">Transcripción</h3>
-                <button onclick="copyText()" class="text-indigo-400 hover:text-indigo-300 flex items-center">
-                    <i class="far fa-copy mr-2"></i> Copiar
-                </button>
+        <div id="resultArea" class="hidden space-y-8 animate-fade-in-up">
+            
+            <div id="viralSection" class="hidden">
+                <div class="flex items-center mb-6">
+                    <h3 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
+                        <i class="fas fa-fire mr-2"></i> Pack Viral Generado
+                    </h3>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <div class="bg-gray-800 rounded-xl p-6 border border-yellow-500/30 shadow-lg col-span-1 md:col-span-2">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="text-yellow-400 font-bold"><i class="fas fa-lightbulb mr-2"></i> Resumen Ejecutivo</h4>
+                            <button onclick="copyToClipboard('resumenContent')" class="text-gray-400 hover:text-white text-sm"><i class="far fa-copy"></i></button>
+                        </div>
+                        <p id="resumenContent" class="text-lg text-gray-200 leading-relaxed"></p>
+                    </div>
+
+                    <div class="bg-gray-800 rounded-xl p-6 border border-blue-500/30 shadow-lg">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="text-blue-400 font-bold"><i class="fab fa-twitter mr-2"></i> Hilo de Twitter</h4>
+                            <button onclick="copyToClipboard('twitterContent')" class="text-gray-400 hover:text-white text-sm"><i class="far fa-copy"></i> Copiar Hilo</button>
+                        </div>
+                        <div id="twitterContent" class="space-y-4 text-sm text-gray-300"></div>
+                    </div>
+
+                    <div class="bg-gray-800 rounded-xl p-6 border border-blue-700/30 shadow-lg">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="text-blue-600 font-bold"><i class="fab fa-linkedin mr-2"></i> Post LinkedIn</h4>
+                            <button onclick="copyToClipboard('linkedinContent')" class="text-gray-400 hover:text-white text-sm"><i class="far fa-copy"></i></button>
+                        </div>
+                        <div id="linkedinContent" class="whitespace-pre-wrap text-sm text-gray-300 leading-relaxed"></div>
+                    </div>
+
+                    <div class="bg-gray-800 rounded-xl p-6 border border-pink-500/30 shadow-lg col-span-1 md:col-span-2">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="text-pink-500 font-bold"><i class="fab fa-tiktok mr-2"></i> Guion TikTok / Reels</h4>
+                            <button onclick="copyToClipboard('tiktokContent')" class="text-gray-400 hover:text-white text-sm"><i class="far fa-copy"></i></button>
+                        </div>
+                        <div id="tiktokContent" class="whitespace-pre-wrap text-sm text-gray-300 font-mono bg-gray-900 p-4 rounded-lg border border-gray-700"></div>
+                    </div>
+                </div>
             </div>
-            <div id="transcripcion" class="bg-gray-900 p-6 rounded-xl border border-gray-700 text-gray-300 text-sm leading-relaxed max-h-96 overflow-y-auto whitespace-pre-wrap">
+
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 p-8 shadow-2xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-400"><i class="fas fa-align-left mr-2"></i> Transcripción Completa</h3>
+                    <button onclick="copyToClipboard('transcripcion')" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm transition">
+                        <i class="far fa-copy mr-2"></i> Copiar Texto
+                    </button>
+                </div>
+                <div id="transcripcion" class="bg-gray-900 p-6 rounded-xl border border-gray-700 text-gray-400 text-sm leading-relaxed max-h-64 overflow-y-auto whitespace-pre-wrap font-mono">
+                </div>
             </div>
+
         </div>
     </div>
 
     <script>
-        // Manejo de la Zona de Arrastre
+        // --- LOGICA FRONTEND ---
+
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
         const fileNameDisp = document.getElementById('fileName');
 
         dropZone.onclick = () => fileInput.click();
         fileInput.onchange = (e) => {
-            if(e.target.files.length > 0) fileNameDisp.innerText = e.target.files[0].name;
+            if(e.target.files.length > 0) fileNameDisp.innerText = "Archivo: " + e.target.files[0].name;
         };
 
         async function apiCall(endpoint, body) {
             showUI(true);
+            hideResults();
+            
             try {
-                const response = await fetch(endpoint, { method: 'POST', body: body });
+                // Determine if it's form data (file) or JSON/URLencoded (youtube)
+                const isFormData = body instanceof FormData;
+                const headers = isFormData ? {} : { 'Content-Type': 'application/x-www-form-urlencoded' };
+                
+                const response = await fetch(endpoint, { 
+                    method: 'POST', 
+                    headers: headers,
+                    body: body 
+                });
+
                 const data = await response.json();
+                
                 if (data.error) throw new Error(data.error);
-                document.getElementById('transcripcion').innerText = data.transcripcion;
-                document.getElementById('resultArea').classList.remove('hidden');
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+
+                renderResults(data);
+
             } catch (e) {
-                alert("Error: " + e.message);
+                alert("❌ Ocurrió un error: " + e.message);
+                console.error(e);
             } finally {
                 showUI(false);
             }
         }
 
+        function renderResults(data) {
+            // 1. Mostrar Transcripción (Siempre viene)
+            document.getElementById('transcripcion').innerText = data.transcripcion || data.transcripcion_completa || "Sin texto.";
+
+            // 2. Mostrar Pack Viral (Si viene del endpoint de YouTube)
+            if (data.pack_viral) {
+                const pack = data.pack_viral;
+                
+                // Resumen
+                document.getElementById('resumenContent').innerText = pack.resumen || "No disponible";
+                
+                // Twitter (Es un array, lo convertimos a HTML bonito)
+                const tweets = pack.hilo_twitter || [];
+                const tweetsHtml = tweets.map((t, i) => 
+                    `<div class="bg-gray-700/50 p-3 rounded mb-2 border-l-4 border-blue-400">
+                        <span class="text-xs text-blue-400 font-bold block mb-1">Tweet ${i+1}</span>
+                        ${t}
+                     </div>`
+                ).join('');
+                document.getElementById('twitterContent').innerHTML = tweetsHtml;
+
+                // LinkedIn
+                document.getElementById('linkedinContent').innerText = pack.linkedin || "No disponible";
+
+                // TikTok
+                document.getElementById('tiktokContent').innerText = pack.tiktok_script || "No disponible";
+
+                // Mostrar sección viral
+                document.getElementById('viralSection').classList.remove('hidden');
+            } else {
+                // Si es subida de archivo (solo transcripción), ocultamos lo viral
+                document.getElementById('viralSection').classList.add('hidden');
+            }
+
+            // Mostrar área general
+            document.getElementById('resultArea').classList.remove('hidden');
+            
+            // Scroll suave hacia abajo
+            setTimeout(() => {
+                document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+        }
+
         function procesarYoutube() {
             const url = document.getElementById('videoUrl').value;
-            if(!url) return alert("Pega un enlace de YouTube.");
+            if(!url) return alert("Por favor, pega un enlace de YouTube.");
+            
             const body = new URLSearchParams();
             body.append('url', url);
+            
             apiCall('/transformar', body);
         }
 
         function procesarArchivo() {
             const file = fileInput.files[0];
             if(!file) return alert("Selecciona un archivo primero.");
+            
             const formData = new FormData();
             formData.append('file', file);
+            
             apiCall('/subir', formData);
         }
 
@@ -113,12 +228,24 @@
             document.getElementById('loader').classList.toggle('hidden', !loading);
             document.getElementById('btnYoutube').disabled = loading;
             document.getElementById('btnFile').disabled = loading;
+            if(loading) {
+                document.getElementById('btnYoutube').classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                document.getElementById('btnYoutube').classList.remove('opacity-50', 'cursor-not-allowed');
+            }
         }
 
-        function copyText() {
-            const text = document.getElementById('transcripcion').innerText;
-            navigator.clipboard.writeText(text);
-            alert("¡Copiado!");
+        function hideResults() {
+            document.getElementById('resultArea').classList.add('hidden');
+        }
+
+        function copyToClipboard(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                // Feedback visual simple
+                const originalText = document.activeElement.innerText;
+                alert("¡Contenido copiado al portapapeles!");
+            });
         }
     </script>
 </body>
