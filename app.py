@@ -92,7 +92,7 @@ def subir_archivo():
 def transformar():
     url = request.form.get('url')
     
-    # Mantenemos las cookies (necesarias por la IP)
+    # Mantenemos las cookies (necesarias para TV + IP Datacenter)
     cookies_content = os.getenv("YT_COOKIES")
     cookie_path = "/tmp/cookies.txt"
     if cookies_content:
@@ -106,21 +106,21 @@ def transformar():
         'nocheckcertificate': True,
         'cookiefile': cookie_path if cookies_content else None,
         
-        # --- LA SOLUCIÓN AL WARNING ---
-        # Esto equivale a --remote-components ejs:github
-        # Le dice a yt-dlp: "Descarga el script de solución desde GitHub y úsalo con Node"
+        # --- LA CORRECCIÓN LITERAL ---
+        # Aquí es donde traducimos "--remote-components ejs:github" a Python.
+        # En el intento anterior puse un diccionario {}, pero yt-dlp espera un STRING.
         'params': {
-            'remote_components': {'ejs': 'github'},
+            'remote_components': 'ejs:github', 
         },
         
         'extractor_args': {
             'youtube': {
-                # Mantenemos TV + Cookies, que es la combinación más dura
+                # Mantenemos TV porque es el que lanza este reto específico
+                # y sabemos que con el componente 'ejs' se puede resolver.
                 'player_client': ['tv'],
                 'player_skip': ['web', 'web_music', 'android', 'ios']
             }
         },
-        # Esto asegura que use el Node que instalamos en Docker
         'js_runtimes': {'node': {}}
     }
 
