@@ -147,11 +147,14 @@ def transformar():
         'nocheckcertificate': True,
         'cookiefile': cookie_path if cookies_content else None,
         'cachedir': cache_dir,
-        # --- BLINDAJE CONTRA CORTES ---
-        'socket_timeout': 30,      # Esperar hasta 30s si YouTube se pone lento
-        'retries': 10,             # Reintentar 10 veces si falla un fragmento
-        'fragment_retries': 10,    # Reintentar fragmentos específicos
-        'ignoreerrors': False,     # Si hay error real, que pare (para no transcribir audios rotos)
+        # 2. BLINDAJE ANTI-CORTES (NUEVO)
+        # Esto evita que se quede a medias
+        'socket_timeout': 30,       # Espera 30s antes de rendirse
+        'retries': 20,              # Reintenta 20 veces si falla HTTP
+        'fragment_retries': 20,     # Reintenta fragmentos específicos
+        'skip_unavailable_fragments': False, # Si falta un trozo, da error (mejor que audio roto)
+        'keep_fragments': True,     # Guarda lo bajado por si reanuda
+        'buffersize': 1024,
         # --- LA CORRECCIÓN MAESTRA ---
         # 1. Va en la RAÍZ (no dentro de 'params').
         # 2. Es una LISTA ['...'] (no un string).
