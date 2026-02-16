@@ -65,10 +65,10 @@ def generar_pack_viral(texto_transcrito):
     IMPORTANTE: Responde ÚNICAMENTE con un JSON válido.
     Usa EXACTAMENTE estas claves:
     {
-        "resumen": "Resumen potente en 3 frases",
+        "resumen": "Resumen potente sobre las ideas clave en 3 frases si el video es corto, o 5 frases si es más largo",
         "hilo_twitter": ["Tweet 1", "Tweet 2", "Tweet 3", "Tweet 4", "Tweet 5"],
         "linkedin": "Texto para LinkedIn profesional con emojis",
-        "tiktok_script": "Guion con indicaciones [VISUAL] y [AUDIO]"
+        "tiktok_script": "Guion con indicaciones [VISUAL] y [AUDIO] para grabar un reel o copiar y pegar como un prompt para IAs de creación de videos"
     }
     """
     try:
@@ -90,7 +90,7 @@ def generar_pack_viral(texto_transcrito):
 @app.route('/')
 def index():
     return render_template('index.html')
-
+# --- FUNCIONALIDADES: SUBIR ARCHIVOS Y TRATAR ENLACES DE YOUTUBE ---
 @app.route('/subir', methods=['POST'])
 def subir_archivo():
     if 'file' not in request.files:
@@ -102,10 +102,9 @@ def subir_archivo():
         return jsonify({"error": "Nombre de archivo vacío"}), 400
         
     if not allowed_file(archivo.filename):
-        return jsonify({"error": "Tipo de archivo no permitido (solo audio/video)"}), 400
+        return jsonify({"error": "Tipo de archivo no permitido"}), 400
 
-    # SEGURIDAD 1: Generamos nombre aleatorio único (UUID)
-    # Da igual si el usuario subió "audio.mp3", nosotros lo guardamos como "550e8400-e29b....mp3"
+    # Generamos nombre único
     ext = archivo.filename.rsplit('.', 1)[1].lower()
     nombre_unico = f"{uuid.uuid4()}.{ext}"
     ruta_temp = os.path.join("/tmp", nombre_unico)
@@ -113,23 +112,34 @@ def subir_archivo():
     archivo.save(ruta_temp)
     
     try:
+        # 1. Comprimir
         ruta_para_groq = comprimir_audio(ruta_temp)
+        
+        # 2. Transcribir
         texto = procesar_con_groq(ruta_para_groq)
         
-        # Como es subida de archivo, de momento solo devolvemos transcripción
-        # (Podrías llamar a generar_pack_viral aquí también si quisieras)
+        # Si la transcripción falla
+        if isinstance(texto, str) and texto.startswith("Error"):
+             return jsonify({"transcripcion": texto, "pack_viral": None})
+
+        # 3. GENERAR PACK VIRAL (¡La Novedad!)
+        print("--- GENERANDO PACK VIRAL PARA ARCHIVO SUBIDO ---")
+        pack_social = generar_pack_viral(texto)
         
-        return jsonify({"transcripcion": texto})
+        # 4. Devolver todo junto
+        return jsonify({
+            "transcripcion": texto,
+            "pack_viral": pack_social 
+        })
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
         
     finally:
-        # LIMPIEZA GARANTIZADA (bloque finally se ejecuta siempre, haya error o no)
+        # Limpieza
         if os.path.exists(ruta_temp): os.remove(ruta_temp)
         if 'ruta_para_groq' in locals() and os.path.exists(ruta_para_groq) and ruta_para_groq != ruta_temp:
             os.remove(ruta_para_groq)
-
 @app.route('/transformar', methods=['POST'])
 def transformar():
     url = request.form.get('url')
