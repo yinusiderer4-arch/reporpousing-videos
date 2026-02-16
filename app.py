@@ -161,8 +161,8 @@ def transformar():
         'extractor_args': {
             'youtube': {
                 # Solo TV (el único que funciona con cookies hoy en día)
-                'player_client': ['android'],
-                'player_skip': ['web', 'web_music', 'tv', 'ios']
+                'player_client': ['tv'],
+                'player_skip': ['web', 'web_music', 'android', 'ios']
             }
         },
         'js_runtimes': {'node': {}}
