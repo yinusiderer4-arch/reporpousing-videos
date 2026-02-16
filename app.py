@@ -130,11 +130,11 @@ def transformar():
 
     # --- CONFIGURACIÓN DE DESCARGA ---
     
-    cookies_content = os.getenv("YT_COOKIES")
-    cookie_path = "/tmp/cookies.txt"
-    if cookies_content:
-        with open(cookie_path, "w") as f:
-            f.write(cookies_content)
+    #cookies_content = os.getenv("YT_COOKIES")
+    #cookie_path = "/tmp/cookies.txt"
+    #if cookies_content:
+        #with open(cookie_path, "w") as f:
+            #f.write(cookies_content)
     # Creamos la variable AQUÍ para poder usarla después
     nombre_original = f'/tmp/audio_{hash(url)}.m4a'
     ydl_opts = {
@@ -145,9 +145,13 @@ def transformar():
         
         'outtmpl': f'/tmp/audio_{hash(url)}.m4a',
         'nocheckcertificate': True,
-        'cookiefile': cookie_path if cookies_content else None,
+        'cookiefile': None,
         'cachedir': cache_dir,
-        
+        # --- BLINDAJE CONTRA CORTES ---
+        'socket_timeout': 30,      # Esperar hasta 30s si YouTube se pone lento
+        'retries': 10,             # Reintentar 10 veces si falla un fragmento
+        'fragment_retries': 10,    # Reintentar fragmentos específicos
+        'ignoreerrors': False,     # Si hay error real, que pare (para no transcribir audios rotos)
         # --- LA CORRECCIÓN MAESTRA ---
         # 1. Va en la RAÍZ (no dentro de 'params').
         # 2. Es una LISTA ['...'] (no un string).
@@ -157,8 +161,8 @@ def transformar():
         'extractor_args': {
             'youtube': {
                 # Solo TV (el único que funciona con cookies hoy en día)
-                'player_client': ['tv'],
-                'player_skip': ['web', 'web_music', 'android', 'ios']
+                'player_client': ['android'],
+                'player_skip': ['web', 'web_music', 'tv', 'ios']
             }
         },
         'js_runtimes': {'node': {}}
