@@ -162,10 +162,29 @@
         }
 
         function renderResults(data) {
-            // 1. Mostrar Transcripción (Siempre viene)
-            document.getElementById('transcripcion').innerText = data.transcripcion || data.transcripcion_completa || "Sin texto.";
+            // 1. DETECTOR DE ERRORES DE API (Groq)
+            const texto = data.transcripcion || data.transcripcion_completa || "";
+            
+            // Si el texto contiene el código de error de límite
+            if (texto.includes("Error code: 429") || texto.includes("Rate limit reached")) {
+                alert("⏳ LÍMITE DE VELOCIDAD ALCANZADO\n\nGroq (el motor gratuito) dice que has procesado demasiado audio en la última hora.\n\nEspera unos 20-30 minutos antes de intentarlo de nuevo.");
+                
+                // Opcional: Mostrarlo en el cuadro pero bonito
+                document.getElementById('transcripcion').innerHTML = `<span class="text-red-400 font-bold">⚠️ El servicio está saturado temporalmente (Límite de API gratuito). Por favor, espera unos minutos.</span>`;
+                document.getElementById('resultArea').classList.remove('hidden');
+                return; // Cortamos aquí para no intentar pintar el resto
+            }
+            
+            // Si es otro tipo de error técnico
+            if (texto.startsWith("Error en Groq") || texto.startsWith("Error")) {
+                alert("❌ Ocurrió un error técnico: " + texto);
+                return;
+            }
 
-            // Logica visual para el Pack Viral
+            // 2. Si todo va bien, mostramos la transcripción
+            document.getElementById('transcripcion').innerText = texto || "Sin texto.";
+
+            // 3. Logica visual para el Pack Viral
             if (data.pack_viral) {
                 const pack = data.pack_viral;
                 
@@ -173,7 +192,6 @@
                 document.getElementById('resumenContent').innerText = pack.resumen || "No disponible";
                 
                 // --- TWITTER ---
-                // Twitter ya es un array, así que iteramos con .map
                 const tweets = Array.isArray(pack.hilo_twitter) ? pack.hilo_twitter : [];
                 const tweetsHtml = tweets.map((t, i) => 
                     `<div class="bg-gray-700/50 p-4 rounded-lg mb-3 border-l-4 border-blue-400 relative hover:bg-gray-700 transition">
@@ -183,27 +201,22 @@
                 ).join('');
                 document.getElementById('twitterContent').innerHTML = tweetsHtml || "<p class='text-gray-400'>No se generaron tweets.</p>";
                 
-                // --- LINKEDIN (BLINDAJE ANTI-ERROR) ---
+                // --- LINKEDIN ---
                 let linkedinRaw = pack.linkedin;
                 let linkedinText = "No disponible";
-
-                // Si viene algo, nos aseguramos de que sea String
                 if (linkedinRaw) {
                     if (Array.isArray(linkedinRaw)) {
-                        linkedinText = linkedinRaw.join('\n\n'); // Si es lista, la unimos
+                        linkedinText = linkedinRaw.join('\n\n');
                     } else {
-                        linkedinText = String(linkedinRaw); // Si es otra cosa, forzamos texto
+                        linkedinText = String(linkedinRaw);
                     }
                 }
-                
-                // Ahora es seguro usar .replace()
                 linkedinText = linkedinText.replace(/\*\*(.*?)\*\*/g, '<b class="text-white">$1</b>');
                 document.getElementById('linkedinContent').innerHTML = linkedinText;
                 
-                // --- TIKTOK (BLINDAJE ANTI-ERROR) ---
+                // --- TIKTOK ---
                 let tiktokRaw = pack.tiktok_script;
                 let tiktokText = "No disponible";
-
                 if (tiktokRaw) {
                     if (Array.isArray(tiktokRaw)) {
                         tiktokText = tiktokRaw.join('\n\n');
@@ -211,27 +224,19 @@
                         tiktokText = String(tiktokRaw);
                     }
                 }
-                
-                // Coloreado visual
                 tiktokText = tiktokText
                     .replace(/\[?VISUAL\]?:?/gi, '<span class="text-pink-400 font-bold block mt-4 mb-1">👁️ VISUAL:</span>')
                     .replace(/\[?AUDIO\]?:?/gi, '<span class="text-green-400 font-bold block mb-1">🗣️ AUDIO:</span>')
                     .replace(/\[ESCENA/gi, '<br><span class="text-yellow-500 font-bold border-b border-gray-600 w-full block mt-6">[ESCENA');
                 
                 document.getElementById('tiktokContent').innerHTML = tiktokText;
-                
-                // Mostrar sección
                 document.getElementById('viralSection').classList.remove('hidden');
 
             } else {
-                // Si es subida de archivo simple sin viral, ocultamos
                 document.getElementById('viralSection').classList.add('hidden');
             }
 
-            // Mostrar área general
             document.getElementById('resultArea').classList.remove('hidden');
-            
-            // Scroll suave hacia abajo
             setTimeout(() => {
                 document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth' });
             }, 100);
