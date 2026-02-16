@@ -92,31 +92,66 @@ def subir_archivo():
 def transformar():
     url = request.form.get('url')
     
-    # Mantenemos las cookies (necesarias para TV + IP Datacenter)
+    print("--- INICIO DIAGNÓSTICO DEL ENTORNO ---")
+    
+    # 1. ¿Dónde está Node?
+    node_path = shutil.which('node')
+    print(f"[CHECK] Ruta de Node: {node_path}")
+    
+    # 2. ¿Qué versión es?
+    if node_path:
+        try:
+            ver = subprocess.getoutput(f"{node_path} --version")
+            print(f"[CHECK] Versión de Node: {ver}")
+        except Exception as e:
+            print(f"[FAIL] Error obteniendo versión: {e}")
+
+    # 3. ¿Puede Node encontrar sus módulos críticos?
+    # Esto simula exactamente lo que intenta hacer el script de challenge
+    try:
+        # Intentamos importar jsdom y canvas desde python llamando a node
+        check_cmd = [node_path, '-e', 'try { require("jsdom"); require("canvas"); console.log("SUCCESS"); } catch (e) { console.log("ERROR: " + e.message); process.exit(1); }']
+        result = subprocess.run(check_cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            print(f"[CHECK] Módulos Node (jsdom/canvas): INSTALADOS Y ACCESIBLES ✅")
+        else:
+            print(f"[FAIL] Módulos Node: FALLO CRÍTICO ❌\nOutput: {result.stdout}\nError: {result.stderr}")
+    except Exception as e:
+        print(f"[FAIL] Error ejecutando prueba de módulos: {e}")
+
+    # 4. Limpieza de Caché (VITAL para errores de challenge)
+    # A veces yt-dlp recuerda que falló y no vuelve a intentar descargar el componente
+    cache_dir = '/tmp/yt-dlp-cache'
+    if os.path.exists(cache_dir):
+        shutil.rmtree(cache_dir)
+        print("[CHECK] Caché de yt-dlp eliminada para forzar descarga de componentes.")
+        
+    print("--- FIN DIAGNÓSTICO ---")
+
+    # --- CONFIGURACIÓN DE DESCARGA ---
+    
     cookies_content = os.getenv("YT_COOKIES")
     cookie_path = "/tmp/cookies.txt"
     if cookies_content:
         with open(cookie_path, "w") as f:
             f.write(cookies_content)
-            
+
     ydl_opts = {
         'verbose': True,
         'format': 'bestaudio/best',
         'outtmpl': f'/tmp/audio_{hash(url)}.m4a',
         'nocheckcertificate': True,
         'cookiefile': cookie_path if cookies_content else None,
+        'cachedir': cache_dir, # Forzamos el uso de la carpeta temporal limpia
         
-        # --- LA CORRECCIÓN LITERAL ---
-        # Aquí es donde traducimos "--remote-components ejs:github" a Python.
-        # En el intento anterior puse un diccionario {}, pero yt-dlp espera un STRING.
+        # SINTAXIS CORREGIDA PARA REMOTE COMPONENTS
+        # Debe ir dentro de 'params', no suelto
         'params': {
             'remote_components': 'ejs:github', 
         },
         
         'extractor_args': {
             'youtube': {
-                # Mantenemos TV porque es el que lanza este reto específico
-                # y sabemos que con el componente 'ejs' se puede resolver.
                 'player_client': ['tv'],
                 'player_skip': ['web', 'web_music', 'android', 'ios']
             }
