@@ -1,4 +1,5 @@
 import os
+import json
 import yt_dlp
 import subprocess
 from flask import Flask, render_template, request, jsonify
@@ -8,35 +9,23 @@ import shutil
 
 app = Flask(__name__)
 
-# Configuración de Groq
+# Configuración Global de Groq
+# Usamos esta instancia global para no crear una nueva en cada petición
 client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-class MyLogger:
-    def debug(self, msg):
-        if msg.startswith('[debug] ') or msg.startswith('[youtube]'):
-            print(msg)
-    def info(self, msg): print(msg)
-    def warning(self, msg): print(msg)
-    def error(self, msg): print(msg)
-def formatear_transcripcion(texto_plano):
-    """Usa Llama 3 para añadir párrafos, mayúsculas y corregir errores."""
-    try:
-        completion = client.chat.completions.create(
-            model="llama3-8b-8192",
-            messages=[
-                {"role": "system", "content": "Eres un editor experto. Tu tarea es coger una transcripción en bruto y darle formato: añade párrafos lógicos, pon mayúsculas donde falten y corrige palabras mal transcritas por el audio. Devuelve solo el texto formateado, sin comentarios extras."},
-                {"role": "user", "content": texto_plano}
-            ]
-        )
-        return completion.choices[0].message.content
-    except:
-        return texto_plano # Si falla la IA de formato, devolvemos el texto original
+# --- FUNCIONES AUXILIARES ---
+
 def comprimir_audio(ruta_original):
     """
     Usa ffmpeg para bajar el peso del archivo drásticamente.
     Convierte a mono, baja el muestreo a 16kHz y el bitrate a 32kbps.
+    Esto es VITAL para no superar el límite de 25MB de Groq.
     """
+    # Creamos un nombre para el archivo ligero
     ruta_comprimido = ruta_original.rsplit('.', 1)[0] + "_lite.mp3"
+    
+    print(f"--- COMPRIMIENDO AUDIO: {ruta_original} -> {ruta_comprimido} ---")
+    
     try:
         comando = [
             "ffmpeg", "-y", "-i", ruta_original,
@@ -48,20 +37,55 @@ def comprimir_audio(ruta_original):
         return ruta_comprimido
     except Exception as e:
         print(f"Error al comprimir: {e}")
-        return ruta_original # Si falla, intentamos con el original
+        # Si falla la compresión, devolvemos el original y rezamos para que pese menos de 25MB
+        return ruta_original 
 
 def procesar_con_groq(ruta_audio):
-    """Envía el audio (ya comprimido) a Groq."""
+    """Envía el audio a Whisper de Groq para transcribir."""
     try:
         with open(ruta_audio, "rb") as file:
             transcription = client.audio.transcriptions.create(
-                file=(ruta_audio, file.read()),
+                file=(os.path.basename(ruta_audio), file.read()), # Enviamos nombre y bytes
                 model="whisper-large-v3",
-                response_format="text",
+                response_format="text", # Pedimos texto plano
             )
         return transcription
     except Exception as e:
         return f"Error en Groq: {str(e)}"
+
+def generar_pack_viral(texto_transcrito):
+    """Genera el contenido para redes sociales usando Llama 3."""
+    # Usamos el cliente global definido arriba
+    
+    prompt = """
+    Actúa como un estratega de contenido viral.
+    Tu objetivo es transformar la siguiente transcripción en piezas de contenido listas para publicar.
+    
+    Devuelve la respuesta ESTRICTAMENTE en formato JSON con estas claves:
+    1. "resumen": Un resumen del video en 3 frases potentes.
+    2. "hilo_twitter": Una lista (array) de 5 tweets (gancho + desarrollo + conclusión).
+    3. "linkedin": Un post profesional con emojis y estructura de valor.
+    4. "tiktok_script": Un guion paso a paso con indicaciones visuales [VISUAL] y de audio [AUDIO].
+    """
+
+    try:
+        completion = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": prompt},
+                # Recortamos a 25k caracteres para no saturar el contexto
+                {"role": "user", "content": f"Transcripción:\n{texto_transcrito[:25000]}"}
+            ],
+            model="llama3-70b-8192", 
+            temperature=0.6,
+            response_format={"type": "json_object"}
+        )
+        return json.loads(completion.choices[0].message.content)
+    except Exception as e:
+        print(f"Error generando pack viral: {e}")
+        # Devolvemos un JSON vacío pero seguro para no romper el frontend
+        return {"error": "No se pudo generar el contenido viral", "detalle": str(e)}
+
+# --- RUTAS DE LA APLICACIÓN ---
 
 @app.route('/')
 def index():
@@ -76,12 +100,13 @@ def subir_archivo():
     ruta_temp = f"/tmp/{archivo.filename}"
     archivo.save(ruta_temp)
     
-    # LLAMADA A LA FUNCIÓN: Comprimimos antes de enviar
+    # 1. Comprimir
     ruta_para_groq = comprimir_audio(ruta_temp)
     
+    # 2. Transcribir
     texto = procesar_con_groq(ruta_para_groq)
     
-    # Limpieza: Borramos ambos archivos
+    # 3. Limpieza
     if os.path.exists(ruta_temp): os.remove(ruta_temp)
     if os.path.exists(ruta_para_groq) and ruta_para_groq != ruta_temp:
         os.remove(ruta_para_groq)
@@ -92,116 +117,81 @@ def subir_archivo():
 def transformar():
     url = request.form.get('url')
     
-    print("--- INICIO DIAGNÓSTICO DEL ENTORNO ---")
+    # Definimos nombre único y ruta
+    nombre_original = f'/tmp/audio_{hash(url)}.m4a'
     
-    # 1. ¿Dónde está Node?
-    node_path = shutil.which('node')
-    print(f"[CHECK] Ruta de Node: {node_path}")
-    
-    # 2. ¿Qué versión es?
-    if node_path:
-        try:
-            ver = subprocess.getoutput(f"{node_path} --version")
-            print(f"[CHECK] Versión de Node: {ver}")
-        except Exception as e:
-            print(f"[FAIL] Error obteniendo versión: {e}")
-
-    # 3. ¿Puede Node encontrar sus módulos críticos?
-    # Esto simula exactamente lo que intenta hacer el script de challenge
-    try:
-        # Intentamos importar jsdom y canvas desde python llamando a node
-        check_cmd = [node_path, '-e', 'try { require("jsdom"); require("canvas"); console.log("SUCCESS"); } catch (e) { console.log("ERROR: " + e.message); process.exit(1); }']
-        result = subprocess.run(check_cmd, capture_output=True, text=True)
-        if result.returncode == 0:
-            print(f"[CHECK] Módulos Node (jsdom/canvas): INSTALADOS Y ACCESIBLES ✅")
-        else:
-            print(f"[FAIL] Módulos Node: FALLO CRÍTICO ❌\nOutput: {result.stdout}\nError: {result.stderr}")
-    except Exception as e:
-        print(f"[FAIL] Error ejecutando prueba de módulos: {e}")
-
-    # 4. Limpieza de Caché (VITAL para errores de challenge)
-    # A veces yt-dlp recuerda que falló y no vuelve a intentar descargar el componente
-    cache_dir = '/tmp/yt-dlp-cache'
-    if os.path.exists(cache_dir):
-        shutil.rmtree(cache_dir)
-        print("[CHECK] Caché de yt-dlp eliminada para forzar descarga de componentes.")
-        
-    print("--- FIN DIAGNÓSTICO ---")
-
-    # --- CONFIGURACIÓN DE DESCARGA ---
-    
+    # Gestión de Cookies
     cookies_content = os.getenv("YT_COOKIES")
     cookie_path = "/tmp/cookies.txt"
     if cookies_content:
         with open(cookie_path, "w") as f:
             f.write(cookies_content)
-    # Creamos la variable AQUÍ para poder usarla después
-    nombre_original = f'/tmp/audio_{hash(url)}.m4a'
+    
+    # Limpieza de caché de yt-dlp
+    cache_dir = '/tmp/yt-dlp-cache'
+    
+    # CONFIGURACIÓN BLINDADA (Descarga robusta)
     ydl_opts = {
         'verbose': True,
         'format': 'bestaudio/best',
-        # AQUÍ USAMOS LA VARIABLE: Así yt-dlp guarda el archivo con ese nombre
         'outtmpl': nombre_original,
-        
-        'outtmpl': f'/tmp/audio_{hash(url)}.m4a',
         'nocheckcertificate': True,
         'cookiefile': cookie_path if cookies_content else None,
         'cachedir': cache_dir,
-        # 2. BLINDAJE ANTI-CORTES (NUEVO)
-        # Esto evita que se quede a medias
-        'socket_timeout': 30,       # Espera 30s antes de rendirse
-        'retries': 20,              # Reintenta 20 veces si falla HTTP
-        'fragment_retries': 20,     # Reintenta fragmentos específicos
-        'skip_unavailable_fragments': False, # Si falta un trozo, da error (mejor que audio roto)
-        'keep_fragments': True,     # Guarda lo bajado por si reanuda
-        'buffersize': 1024,
-        # --- LA CORRECCIÓN MAESTRA ---
-        # 1. Va en la RAÍZ (no dentro de 'params').
-        # 2. Es una LISTA ['...'] (no un string).
-        # Esto le dice a yt-dlp: "Descarga el módulo EJS desde GitHub".
+        
+        # LLAVE MAESTRA (GitHub + Node)
         'remote_components': ['ejs:github'], 
+        
+        # ANTI-CORTES
+        'socket_timeout': 30,
+        'retries': 20,
+        'fragment_retries': 20,
+        'skip_unavailable_fragments': False,
+        'buffersize': 1024,
         
         'extractor_args': {
             'youtube': {
-                # Solo TV (el único que funciona con cookies hoy en día)
-                'player_client': ['tv'],
+                'player_client': ['tv'], 
                 'player_skip': ['web', 'web_music', 'android', 'ios']
             }
         },
         'js_runtimes': {'node': {}}
     }
-    # --- NUEVO DEBUG: VERIFICACIÓN DE CONFIGURACIÓN ---
-    print("\n--- VERIFICACIÓN DE CONFIGURACIÓN ---")
-    # Imprimimos si la clave existe y qué valor tiene
-    rc_val = ydl_opts.get('remote_components', 'NO CONFIGURADO ❌')
-    print(f"[CONFIG] Remote Components: {rc_val}")
-    
-    if rc_val == ['ejs:github']:
-        print("[CONFIG] ✅ La configuración parece correcta (Lista en raíz)")
-    else:
-        print("[CONFIG] ⚠️ CUIDADO: La configuración no coincide con lo esperado")
-    print("--------------------------------------\n")
+
     try:
-        # 4. DESCARGA
-        print(f"--- INICIANDO DESCARGA EN: {nombre_original} ---")
-        
+        print(f"--- 1. DESCARGANDO: {url} ---")
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
         
-        # 5. PROCESAMIENTO (¡Esto no lo toques!)
-        # Comprimir -> Transcribir -> Formatear
-        ruta_para_groq = comprimir_audio(nombre_original)
-        texto_bruto = procesar_con_groq(ruta_para_groq)
-        texto_final = formatear_transcripcion(texto_bruto)
+        if not os.path.exists(nombre_original):
+             return jsonify({"error": "Fallo en descarga"}), 500
 
-        # 6. LIMPIEZA
+        print("--- 2. COMPRIMIENDO AUDIO (Vital para Groq) ---")
+        # ESTO ES LO QUE FALTABA: Comprimir antes de enviar
+        ruta_comprimida = comprimir_audio(nombre_original)
+
+        print("--- 3. TRANSCRIBIENDO CON WHISPER ---")
+        texto_crudo = procesar_con_groq(ruta_comprimida)
+        
+        print("--- 4. GENERANDO PACK VIRAL (MARKETING) ---")
+        pack_social = generar_pack_viral(texto_crudo)
+        
+        # LIMPIEZA TOTAL
+        # Borramos el original pesado
         if os.path.exists(nombre_original): os.remove(nombre_original)
-        if os.path.exists(ruta_para_groq): os.remove(ruta_para_groq)
+        # Borramos el comprimido ligero
+        if os.path.exists(ruta_comprimida) and ruta_comprimida != nombre_original:
+            os.remove(ruta_comprimida)
             
-        return jsonify({"transcripcion": texto_final})
+        return jsonify({
+            "status": "success",
+            "transcripcion": texto_crudo,
+            "pack_viral": pack_social
+        })
 
     except Exception as e:
-        return jsonify({"error": f"Error técnico: {str(e)}"}), 500
+        print(f"❌ ERROR FATAL: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 7860))
