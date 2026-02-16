@@ -53,37 +53,54 @@ def procesar_con_groq(ruta_audio):
     except Exception as e:
         return f"Error en Groq: {str(e)}"
 
+
 def generar_pack_viral(texto_transcrito):
-    """Genera el contenido para redes sociales usando Llama 3."""
-    # Usamos el cliente global definido arriba
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key: return {"error": "Falta API Key"}
+
+    client = Groq(api_key=api_key)
     
+    # 1. PROMPT EXACTO
     prompt = """
     Actúa como un estratega de contenido viral.
     Tu objetivo es transformar la siguiente transcripción en piezas de contenido listas para publicar.
     
-    Devuelve la respuesta ESTRICTAMENTE en formato JSON con estas claves:
-    1. "resumen": Un resumen del video en 3 frases potentes.
-    2. "hilo_twitter": Una lista (array) de 5 tweets (gancho + desarrollo + conclusión).
-    3. "linkedin": Un post profesional con emojis y estructura de valor.
-    4. "tiktok_script": Un guion paso a paso con indicaciones visuales [VISUAL] y de audio [AUDIO].
+    IMPORTANTE: Responde ÚNICAMENTE con un JSON válido. Sin texto introductorio.
+    Usa EXACTAMENTE estas claves:
+    
+    {
+        "resumen": "Resumen potente en 3 frases",
+        "hilo_twitter": ["Tweet 1", "Tweet 2", "Tweet 3", "Tweet 4", "Tweet 5"],
+        "linkedin": "Texto para LinkedIn profesional con emojis",
+        "tiktok_script": "Guion con indicaciones [VISUAL] y [AUDIO]"
+    }
     """
 
     try:
         completion = client.chat.completions.create(
             messages=[
                 {"role": "system", "content": prompt},
-                # Recortamos a 25k caracteres para no saturar el contexto
                 {"role": "user", "content": f"Transcripción:\n{texto_transcrito[:25000]}"}
             ],
             model="llama3-70b-8192", 
-            temperature=0.6,
+            temperature=0.5, # Bajamos temperatura para que sea más obediente con el JSON
             response_format={"type": "json_object"}
         )
-        return json.loads(completion.choices[0].message.content)
+        
+        contenido_bruto = completion.choices[0].message.content
+        print(f"--- RESPUESTA RAW GROQ (DEBUG) ---\n{contenido_bruto[:200]}...\n--------------------------------")
+        
+        return json.loads(contenido_bruto)
+        
     except Exception as e:
-        print(f"Error generando pack viral: {e}")
-        # Devolvemos un JSON vacío pero seguro para no romper el frontend
-        return {"error": "No se pudo generar el contenido viral", "detalle": str(e)}
+        print(f"❌ ERROR JSON PACK VIRAL: {e}")
+        # Devolvemos un objeto vacío con el error para que el frontend no muestre "undefined"
+        return {
+            "resumen": "Error generando resumen: " + str(e),
+            "hilo_twitter": ["Error"],
+            "linkedin": "Error",
+            "tiktok_script": "Error"
+        }
 
 # --- RUTAS DE LA APLICACIÓN ---
 
@@ -112,43 +129,29 @@ def subir_archivo():
         os.remove(ruta_para_groq)
     
     return jsonify({"transcripcion": texto})
-
+# --- RUTA TRANSFORMAR ---
 @app.route('/transformar', methods=['POST'])
 def transformar():
     url = request.form.get('url')
     
-    # Definimos nombre único y ruta
+    # Rutas
     nombre_original = f'/tmp/audio_{hash(url)}.m4a'
     
-    # Gestión de Cookies
+    # Cookies
     cookies_content = os.getenv("YT_COOKIES")
     cookie_path = "/tmp/cookies.txt"
     if cookies_content:
         with open(cookie_path, "w") as f:
             f.write(cookies_content)
     
-    # Limpieza de caché de yt-dlp
-    cache_dir = '/tmp/yt-dlp-cache'
-    
-    # CONFIGURACIÓN BLINDADA (Descarga robusta)
+    # Configuración yt-dlp
     ydl_opts = {
         'verbose': True,
         'format': 'bestaudio/best',
         'outtmpl': nombre_original,
         'nocheckcertificate': True,
         'cookiefile': cookie_path if cookies_content else None,
-        'cachedir': cache_dir,
-        
-        # LLAVE MAESTRA (GitHub + Node)
         'remote_components': ['ejs:github'], 
-        
-        # ANTI-CORTES
-        'socket_timeout': 30,
-        'retries': 20,
-        'fragment_retries': 20,
-        'skip_unavailable_fragments': False,
-        'buffersize': 1024,
-        
         'extractor_args': {
             'youtube': {
                 'player_client': ['tv'], 
@@ -166,31 +169,35 @@ def transformar():
         if not os.path.exists(nombre_original):
              return jsonify({"error": "Fallo en descarga"}), 500
 
-        print("--- 2. COMPRIMIENDO AUDIO (Vital para Groq) ---")
-        # ESTO ES LO QUE FALTABA: Comprimir antes de enviar
+        # --- AQUI ESTABA EL FALLO ANTES ---
+        # Hay que comprimir SIEMPRE antes de enviar a Groq
+        print("--- 2. COMPRIMIENDO (Vital para Groq) ---")
         ruta_comprimida = comprimir_audio(nombre_original)
 
-        print("--- 3. TRANSCRIBIENDO CON WHISPER ---")
+        print("--- 3. TRANSCRIBIENDO ---")
+        # Usamos la ruta comprimida, no la original
         texto_crudo = procesar_con_groq(ruta_comprimida)
         
-        print("--- 4. GENERANDO PACK VIRAL (MARKETING) ---")
+        # Verificamos que no sea un error de transcripción
+        if isinstance(texto_crudo, str) and texto_crudo.startswith("Error"):
+             return jsonify({"transcripcion": texto_crudo, "pack_viral": None})
+
+        print("--- 4. GENERANDO PACK VIRAL ---")
         pack_social = generar_pack_viral(texto_crudo)
         
-        # LIMPIEZA TOTAL
-        # Borramos el original pesado
+        # Limpieza
         if os.path.exists(nombre_original): os.remove(nombre_original)
-        # Borramos el comprimido ligero
         if os.path.exists(ruta_comprimida) and ruta_comprimida != nombre_original:
             os.remove(ruta_comprimida)
             
         return jsonify({
             "status": "success",
             "transcripcion": texto_crudo,
-            "pack_viral": pack_social
+            "pack_viral": pack_social 
         })
 
     except Exception as e:
-        print(f"❌ ERROR FATAL: {str(e)}")
+        print(f"❌ ERROR CRÍTICO: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
