@@ -59,17 +59,39 @@ def generar_pack_viral(texto_transcrito):
     client = Groq(api_key=api_key)
 
     prompt = """
-    Actúa como un estratega de contenido viral.
-    Tu objetivo es transformar la siguiente transcripción en piezas de contenido listas para publicar.
+    Eres un Editor Jefe de medios virales y experto en Copywriting.
+    Tu trabajo NO es resumir, es REEMPAQUETAR el contenido para maximizar el engagement (likes, retweets, shares).
     
-    IMPORTANTE: Responde ÚNICAMENTE con un JSON válido.
-    Usa EXACTAMENTE estas claves:
-    {
-        "resumen": "Resumen potente sobre las ideas clave en 3 frases si el video es corto, o 5 frases si es más largo",
-        "hilo_twitter": ["Tweet 1", "Tweet 2", "Tweet 3", "Tweet 4", "Tweet 5"],
-        "linkedin": "Texto para LinkedIn profesional con emojis",
-        "tiktok_script": "Guion con indicaciones [VISUAL] y [AUDIO] para grabar un reel o copiar y pegar como un prompt para IAs de creación de videos. Que esté trabajado y dé mucho juego para crear"
-    }
+    Analiza la transcripción y extrae las ideas más polémicas, sorprendentes o educativas. Ignora la paja, quédate con el oro.
+    
+    Genera un JSON ESTRICTO con estas claves y siguiendo estas reglas DE ESTILO:
+
+    1. "resumen": 
+       - NO empieces con "El video trata de...".
+       - Empieza directo al grano. Usa un tono periodístico pero urgente. 
+       - Máximo 3 frases de alto impacto.
+
+    2. "hilo_twitter": 
+       - Array de 5 a 7 strings.
+       - TWEET 1 (GANCHO): Debe ser irresistible. Usa una afirmación contraintuitiva, una pregunta retórica o un dato impactante. NO uses hashtags aquí.
+       - TWEETS CUERPO: Desarrolla la idea. Usa frases cortas.
+       - TWEET FINAL: Una conclusión o llamada a la acción.
+
+    3. "linkedin": 
+       - Estructura de "Bro-etry" (frases cortas, mucho espacio en blanco).
+       - Empieza con una frase corta que rompa el patrón ("Hook").
+       - Desarrolla el problema y la solución.
+       - Usa negritas (usando asteriscos tipo **texto**) para resaltar conceptos clave.
+       - Termina con una pregunta para generar comentarios.
+
+    4. "tiktok_script": 
+       - NO devuelvas un párrafo. Devuelve un texto con saltos de línea claros.
+       - Formato: 
+         [ESCENA 1]
+         👁️ VISUAL: (Describe una acción específica, un meme, o un gráfico concreto, no "persona hablando")
+         🗣️ AUDIO: (Texto a decir, directo y con ritmo)
+         
+         [ESCENA 2]...
     """
     try:
         completion = client.chat.completions.create(
