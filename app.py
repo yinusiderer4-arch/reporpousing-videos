@@ -37,7 +37,6 @@ DOMINIOS_YOUTUBE = {
     "youtu.be", "m.youtube.com",
     "music.youtube.com"
 }
-
 # ---------------------------------------------------------------------------
 # FUNCIONES DE VALIDACIÓN
 # ---------------------------------------------------------------------------
@@ -345,6 +344,8 @@ def transformar():
         'verbose':            True,    # Mantener en True para poder depurar problemas de YouTube
         'format':             'bestaudio/best',
         'outtmpl':            ruta_audio,
+        'force_ipv4': True,
+        'source_address': '0.0.0.0',
         'nocheckcertificate': True,
         'cookiefile':         ruta_cookies,
         'socket_timeout':     30,
@@ -401,5 +402,5 @@ def transformar():
 # ARRANQUE
 # ---------------------------------------------------------------------------
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 7860))
+    port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
