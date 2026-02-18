@@ -1,4 +1,4 @@
 flask
 groq
 yt-dlp
-Flask-Limiter
+flask-limiter
