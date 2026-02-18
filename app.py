@@ -7,8 +7,6 @@ import yt_dlp
 import subprocess
 from urllib.parse import urlparse
 from flask import Flask, render_template, request, jsonify
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from groq import Groq
 import uuid
 
@@ -28,18 +26,6 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB
-
-# ---------------------------------------------------------------------------
-# RATE LIMITING
-# Protege las rutas costosas contra abuso o scraping involuntario.
-# Los límites son conservadores para un free tier; ajústalos según el plan.
-# ---------------------------------------------------------------------------
-limiter = Limiter(
-    get_remote_address,
-    app=app,
-    default_limits=[],          # Sin límite global; lo aplicamos por ruta
-    storage_uri="memory://",    # Cambia a Redis en producción: "redis://localhost:6379"
-)
 
 # ---------------------------------------------------------------------------
 # CONSTANTES
@@ -109,7 +95,7 @@ def comprimir_audio(ruta_original: str) -> str:
     antes de enviarlo a Groq. Devuelve la ruta del archivo comprimido,
     o la ruta original si la compresión falla.
     """
-    # Guarda el comprimido en el mismo directorio que el original
+    # Guardamos el comprimido en el mismo directorio que el original
     directorio = os.path.dirname(ruta_original)
     nombre_comprimido = os.path.join(directorio, f"{uuid.uuid4()}_lite.mp3")
 
@@ -286,7 +272,6 @@ def index():
 
 
 @app.route('/subir', methods=['POST'])
-@limiter.limit("20 per hour")   # Límite conservador para el free tier
 def subir_archivo():
     if 'file' not in request.files:
         return jsonify({"error": "No hay archivo en la petición."}), 400
@@ -333,7 +318,6 @@ def subir_archivo():
 
 
 @app.route('/transformar', methods=['POST'])
-@limiter.limit("10 per hour")   # Más restrictivo por el coste de la descarga
 def transformar():
     url = request.form.get('url', '').strip()
 
