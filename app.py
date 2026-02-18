@@ -344,6 +344,7 @@ def transformar():
     ydl_opts = {
         'verbose':            True,    # Mantener en True para poder depurar problemas de YouTube
         'format':             'bestaudio/best',
+        'source_address': '::',
         'outtmpl':            ruta_audio,
         'nocheckcertificate': True,
         'cookiefile':         ruta_cookies,
