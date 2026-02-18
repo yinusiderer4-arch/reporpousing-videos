@@ -342,22 +342,24 @@ def transformar():
         log.info("Cookies escritas en archivo temporal: %s", ruta_cookies)
 
     ydl_opts = {
-        'verbose':           False,   # True solo para depuración local
-        'format':            'bestaudio/best',
-        'outtmpl':           ruta_audio,
+        'verbose':            True,    # Mantener en True para poder depurar problemas de YouTube
+        'format':             'bestaudio/best',
+        'outtmpl':            ruta_audio,
         'nocheckcertificate': True,
-        'cookiefile':        ruta_cookies,
-        'socket_timeout':    30,
-        'retries':           10,
-        'fragment_retries':  10,
+        'cookiefile':         ruta_cookies,
+        'socket_timeout':     30,
+        'retries':            20,
+        'fragment_retries':   20,
         'extractor_args': {
             'youtube': {
                 'player_client': ['tv'],
                 'player_skip':   ['web', 'web_music', 'android', 'ios']
             }
         },
-        # ELIMINADO: 'remote_components' y 'js_runtimes' no son opciones
-        # estándar de yt-dlp y generaban warnings silenciosos.
+        # js_runtimes es necesario para que yt-dlp use Node.js al resolver
+        # el n-challenge de YouTube. Sin esto el solver no se invoca y
+        # YouTube bloquea la descarga con "format not available".
+        'js_runtimes': {'node': {}},
     }
 
     try:
