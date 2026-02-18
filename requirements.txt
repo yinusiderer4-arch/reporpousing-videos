@@ -2,3 +2,4 @@ flask
 groq
 yt-dlp
 flask-limiter
+gunicorn
